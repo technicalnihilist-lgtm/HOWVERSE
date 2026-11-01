@@ -5,22 +5,28 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * Small persistent store: theme choice, AI backend URL and saved lessons.
- * Saved lessons used to live only in memory and disappeared on restart.
+ * Small persistent store: theme, teaching language, AI backend URL, pack URL and
+ * saved lessons. Everything survives a restart.
  */
 class Prefs(context: Context) {
 
     private val sp = context.getSharedPreferences("howverse_prefs", Context.MODE_PRIVATE)
 
-    /** "system", "light" or "dark". */
     var themeMode: String
         get() = sp.getString("theme_mode", "system") ?: "system"
         set(value) = sp.edit().putString("theme_mode", value).apply()
 
-    /** Base URL of the AI backend, e.g. https://ai.example.com — blank means offline mode. */
     var backendUrl: String
         get() = sp.getString("backend_url", "") ?: ""
         set(value) = sp.edit().putString("backend_url", value.trim()).apply()
+
+    var languageCode: String
+        get() = sp.getString("language_code", "en") ?: "en"
+        set(value) = sp.edit().putString("language_code", value).apply()
+
+    var packUrl: String
+        get() = sp.getString("pack_url", "") ?: ""
+        set(value) = sp.edit().putString("pack_url", value.trim()).apply()
 
     fun loadSaved(): List<SavedLesson> {
         val raw = sp.getString("saved", "[]") ?: "[]"
@@ -43,7 +49,7 @@ class Prefs(context: Context) {
             arr.put(
                 JSONObject()
                     .put("id", it.id)
-                    .put("q", it.question)
+                    .put("question", it.question)
                     .put("a", it.answer)
                     .put("t", it.savedAt)
             )

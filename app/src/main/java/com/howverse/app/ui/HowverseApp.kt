@@ -3,8 +3,12 @@ package com.howverse.app.ui
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
+import android.content.Intent
+import android.graphics.BitmapFactory
 import android.speech.tts.TextToSpeech
+import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -15,11 +19,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
@@ -30,37 +34,31 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountBalanceWallet
-import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.BookmarkAdd
 import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.DirectionsCar
-import androidx.compose.material.icons.filled.Explore
-import androidx.compose.material.icons.filled.Handyman
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Lightbulb
+import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.PhoneAndroid
-import androidx.compose.material.icons.filled.Publish
-import androidx.compose.material.icons.filled.Restaurant
-import androidx.compose.material.icons.filled.Science
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Storefront
+import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material.icons.filled.WifiOff
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
@@ -72,6 +70,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextFieldColors
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -85,8 +84,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
@@ -94,28 +95,30 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
+import com.howverse.app.VideoActivity
+import com.howverse.app.data.Catalogue
 import com.howverse.app.data.ChatMessage
+import com.howverse.app.data.Downloader
+import com.howverse.app.data.Language
+import com.howverse.app.data.Languages
 import com.howverse.app.data.LessonEngine
 import com.howverse.app.data.Prefs
 import com.howverse.app.data.Role
 import com.howverse.app.data.SavedLesson
+import com.howverse.app.data.Section
 import kotlinx.coroutines.launch
+import java.io.File
 import java.util.Locale
 
-private data class LearningCategory(val title: String, val icon: ImageVector, val blurb: String)
-
-private val categories = listOf(
-    LearningCategory("Technology", Icons.Filled.PhoneAndroid, "Devices, apps and how they work"),
-    LearningCategory("Vehicles", Icons.Filled.DirectionsCar, "Cars, bikes and maintenance"),
-    LearningCategory("Cooking", Icons.Filled.Restaurant, "Recipes and kitchen technique"),
-    LearningCategory("Coding & AI", Icons.Filled.Code, "Programming and machine learning"),
-    LearningCategory("Construction", Icons.Filled.Home, "Build, repair and renovate"),
-    LearningCategory("Business", Icons.Filled.Storefront, "Selling, pricing and growth"),
-    LearningCategory("Money", Icons.Filled.AccountBalanceWallet, "Budgets, saving and investing"),
-    LearningCategory("Science", Icons.Filled.Science, "Physics, biology and chemistry"),
-    LearningCategory("Home skills", Icons.Filled.Handyman, "Plumbing, paint and tools"),
-    LearningCategory("Publishing", Icons.Filled.Publish, "Apps, books and going public")
-)
+private sealed interface Route {
+    data object Home : Route
+    data object Catalogue : Route
+    data object Chat : Route
+    data object Saved : Route
+    data object Profile : Route
+    data object Downloads : Route
+    data class Section(val id: String) : Route
+}
 
 private val starterQuestions = listOf(
     "How does a smartphone work?",
@@ -124,11 +127,19 @@ private val starterQuestions = listOf(
     "How does artificial intelligence work?"
 )
 
-private const val TAB_HOME = "Home"
-private const val TAB_EXPLORE = "Explore"
-private const val TAB_AI = "AI"
-private const val TAB_SAVED = "Saved"
-private const val TAB_PROFILE = "Profile"
+private val artCache = HashMap<String, ImageBitmap?>()
+
+@Composable
+private fun sectionArt(path: String): ImageBitmap? {
+    val context = LocalContext.current
+    return remember(path) {
+        artCache.getOrPut(path) {
+            runCatching {
+                context.assets.open(path).use { BitmapFactory.decodeStream(it)?.asImageBitmap() }
+            }.getOrNull()
+        }
+    }
+}
 
 private fun Context.findActivity(): Activity? {
     var context = this
@@ -137,6 +148,12 @@ private fun Context.findActivity(): Activity? {
         context = context.baseContext
     }
     return null
+}
+
+private fun openVideos(context: Context, query: String) {
+    context.startActivity(
+        Intent(context, VideoActivity::class.java).putExtra(VideoActivity.EXTRA_QUERY, query)
+    )
 }
 
 @Composable
@@ -181,12 +198,19 @@ private fun HowverseScaffold(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    var tab by remember { mutableStateOf(TAB_HOME) }
+    var route by remember { mutableStateOf<Route>(Route.Home) }
     var query by remember { mutableStateOf("") }
-    var category by remember { mutableStateOf("Everything") }
-    var loading by remember { mutableStateOf(false) }
+    var catalogueQuery by remember { mutableStateOf("") }
+    var languageCode by remember { mutableStateOf(prefs.languageCode) }
+    val language = Languages.byCode(languageCode)
     var backendUrl by remember { mutableStateOf(prefs.backendUrl) }
+    var packUrl by remember { mutableStateOf(prefs.packUrl) }
+    var voiceNote by remember { mutableStateOf("") }
+    var loading by remember { mutableStateOf(false) }
     var tts by remember { mutableStateOf<TextToSpeech?>(null) }
+    var packs by remember { mutableStateOf(Downloader.listPacks(context)) }
+    var downloadStatus by remember { mutableStateOf("") }
+    var packBusy by remember { mutableStateOf(false) }
 
     val messages = remember { mutableStateListOf<ChatMessage>() }
     val saved = remember {
@@ -195,27 +219,43 @@ private fun HowverseScaffold(
 
     DisposableEffect(Unit) {
         tts = TextToSpeech(context) { status ->
-            if (status == TextToSpeech.SUCCESS) tts?.language = Locale("en", "IN")
+            if (status == TextToSpeech.SUCCESS) tts?.language = Locale.forLanguageTag(language.tag)
         }
         onDispose { tts?.shutdown() }
     }
 
-    fun speak(text: String) {
-        tts?.speak(text.take(3500), TextToSpeech.QUEUE_FLUSH, null, "howverse")
+    LaunchedEffect(languageCode) {
+        val engine = tts ?: return@LaunchedEffect
+        val result = engine.setLanguage(Locale.forLanguageTag(language.tag))
+        voiceNote = if (result == TextToSpeech.LANG_MISSING_DATA ||
+            result == TextToSpeech.LANG_NOT_SUPPORTED
+        ) {
+            "No offline voice for ${language.label} on this device — install it in Android " +
+                "Settings › Text-to-speech, or read the lesson in English."
+        } else ""
     }
 
-    fun ask(question: String, askCategory: String = category) {
+    fun speak(text: String) {
+        val engine = tts ?: return
+        engine.setLanguage(Locale.forLanguageTag(language.tag))
+        engine.speak(text.take(3500), TextToSpeech.QUEUE_FLUSH, null, "howverse")
+    }
+
+    fun toast(message: String) {
+        Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+    }
+
+    fun ask(question: String, askCategory: String = "Everything") {
         val text = question.trim()
         if (text.isEmpty() || loading) return
-        category = askCategory
         query = ""
-        tab = TAB_AI
+        route = Route.Chat
         val stamp = System.currentTimeMillis()
         messages.add(ChatMessage(id = stamp, role = Role.USER, text = text))
         messages.add(ChatMessage(id = stamp + 1, role = Role.AI, text = "", pending = true))
         loading = true
         scope.launch {
-            val lesson = LessonEngine.ask(text, askCategory, prefs.backendUrl)
+            val lesson = LessonEngine.ask(text, askCategory, prefs.backendUrl, language.label)
             val index = messages.indexOfFirst { it.id == stamp + 1 }
             if (index >= 0) {
                 messages[index] = ChatMessage(
@@ -238,6 +278,49 @@ private fun HowverseScaffold(
         if (saved.any { it.answer == message.text }) return
         saved.add(0, SavedLesson(System.currentTimeMillis(), question, message.text, System.currentTimeMillis()))
         prefs.persistSaved(saved.toList())
+        toast("Lesson saved")
+    }
+
+    fun downloadMessage(message: ChatMessage) {
+        val question = messages.lastOrNull { it.role == Role.USER && it.id < message.id }?.text
+            ?: "HOWVERSE lesson"
+        val body = buildString {
+            appendLine("HOWVERSE — $question")
+            appendLine("Language: ${language.label}")
+            appendLine("Saved: " + java.text.SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.US)
+                .format(java.util.Date()))
+            appendLine()
+            appendLine(message.text)
+            if (message.sources.isNotEmpty()) {
+                appendLine()
+                appendLine("Sources:")
+                message.sources.forEach { appendLine("- $it") }
+            }
+        }
+        downloadStatus = Downloader.saveText(context, question, body)
+        toast(downloadStatus)
+    }
+
+    fun downloadSection(section: Section) {
+        val body = buildString {
+            appendLine("HOWVERSE — ${section.letter} · ${section.title}")
+            appendLine(section.blurb)
+            appendLine()
+            appendLine("Topics (${section.topics.size}):")
+            section.topics.forEachIndexed { i, topic -> appendLine("${i + 1}. $topic") }
+            appendLine()
+            appendLine("Learning modes:")
+            Catalogue.modes.forEach { appendLine("- $it") }
+            appendLine()
+            appendLine("Ask HOWVERSE AI about any topic in the app for a step-by-step lesson.")
+        }
+        downloadStatus = Downloader.saveText(context, "${section.title}-topics", body)
+        toast(downloadStatus)
+    }
+
+    fun changeLanguage(code: String) {
+        languageCode = code
+        prefs.languageCode = code
     }
 
     Box(
@@ -251,43 +334,69 @@ private fun HowverseScaffold(
                 .safeDrawingPadding()
                 .imePadding()
         ) {
-            Header(
+            AppHeader(
+                route = route,
                 isDark = isDark,
                 onToggleTheme = { onThemeMode(if (isDark) "light" else "dark") },
-                onOpenProfile = { tab = TAB_PROFILE }
+                onProfile = { route = Route.Profile },
+                onBack = { route = Route.Catalogue }
             )
 
-            when (tab) {
-                TAB_HOME -> HomeScreen(
+            when (val current = route) {
+                Route.Home -> HomeScreen(
                     query = query,
                     onQueryChange = { query = it },
-                    onAsk = { ask(it, category) },
-                    onOpenCategory = { title -> ask("Teach me the basics of $title", title) },
-                    onOpenSuggestion = { ask(it, "Everything") }
+                    onAsk = { ask(it) },
+                    onOpenSection = { route = Route.Section(it) },
+                    onOpenCatalogue = { route = Route.Catalogue },
+                    onOpenDownloads = { route = Route.Downloads },
+                    language = language,
+                    onOpenLanguage = { route = Route.Profile }
                 )
 
-                TAB_EXPLORE -> ExploreScreen(
-                    onOpenCategory = { title -> ask("Teach me the basics of $title", title) },
-                    onOpenSuggestion = { ask(it, "Everything") }
+                Route.Catalogue -> CatalogueScreen(
+                    query = catalogueQuery,
+                    onQueryChange = { catalogueQuery = it },
+                    onOpenSection = { route = Route.Section(it) },
+                    onAskTopic = { ask(it) },
+                    onVideoTopic = { openVideos(context, it) }
                 )
 
-                TAB_AI -> ChatScreen(
+                is Route.Section -> {
+                    val section = Catalogue.byId(current.id)
+                    if (section == null) {
+                        route = Route.Catalogue
+                    } else {
+                        SectionScreen(
+                            section = section,
+                            language = language,
+                            onAsk = { topic -> ask(topic, section.title) },
+                            onVideo = { topic -> openVideos(context, topic) },
+                            onDownload = { downloadSection(section) }
+                        )
+                    }
+                }
+
+                Route.Chat -> ChatScreen(
                     messages = messages,
                     loading = loading,
                     backendUrl = backendUrl,
+                    language = language,
+                    voiceNote = voiceNote,
                     onAsk = { ask(it) },
                     onSpeak = { speak(it) },
                     onSave = { saveMessage(it) },
+                    onDownload = { downloadMessage(it) },
                     onClear = { messages.clear() }
                 )
 
-                TAB_SAVED -> SavedScreen(
+                Route.Saved -> SavedScreen(
                     saved = saved,
                     onOpen = { item ->
                         val stamp = System.currentTimeMillis()
                         messages.add(ChatMessage(id = stamp, role = Role.USER, text = item.question))
                         messages.add(ChatMessage(id = stamp + 1, role = Role.AI, text = item.answer))
-                        tab = TAB_AI
+                        route = Route.Chat
                     },
                     onDelete = { item ->
                         saved.removeAll { it.id == item.id }
@@ -295,42 +404,110 @@ private fun HowverseScaffold(
                     }
                 )
 
-                else -> ProfileScreen(
+                Route.Downloads -> DownloadsScreen(
+                    packUrl = packUrl,
+                    onPackUrlChange = {
+                        packUrl = it
+                        prefs.packUrl = it
+                    },
+                    packs = packs,
+                    busy = packBusy,
+                    status = downloadStatus,
+                    onDownloadPack = {
+                        if (packUrl.isBlank()) {
+                            downloadStatus = "Enter a topic pack URL first"
+                        } else {
+                            packBusy = true
+                            scope.launch {
+                                val result = runCatching { Downloader.downloadPack(context, packUrl) }
+                                packBusy = false
+                                packs = Downloader.listPacks(context)
+                                downloadStatus = result.fold(
+                                    onSuccess = { "Downloaded ${it.name} (${it.length() / 1024} KB)" },
+                                    onFailure = { "Download failed: ${it.message ?: "unknown error"}" }
+                                )
+                            }
+                        }
+                    },
+                    onDeletePack = { file ->
+                        Downloader.deletePack(file)
+                        packs = Downloader.listPacks(context)
+                    }
+                )
+
+                Route.Profile -> ProfileScreen(
                     themeMode = themeMode,
                     onThemeMode = onThemeMode,
+                    language = language,
+                    onLanguage = { changeLanguage(it) },
+                    voiceNote = voiceNote,
                     backendUrl = backendUrl,
                     onBackendUrlChange = { url ->
                         backendUrl = url
                         prefs.backendUrl = url
                     },
-                    savedCount = saved.size
+                    savedCount = saved.size,
+                    onOpenDownloads = { route = Route.Downloads },
+                    onTestVoice = { speak("HOWVERSE. Learn anything. Understand everything.") }
                 )
             }
 
-            BottomBar(tab = tab, onTab = { tab = it })
+            BottomBar(
+                route = route,
+                onTab = { tab ->
+                    route = when (tab) {
+                        "Home" -> Route.Home
+                        "Catalogue" -> Route.Catalogue
+                        "AI" -> Route.Chat
+                        "Saved" -> Route.Saved
+                        else -> Route.Profile
+                    }
+                }
+            )
         }
     }
 }
 
 @Composable
-private fun Header(isDark: Boolean, onToggleTheme: () -> Unit, onOpenProfile: () -> Unit) {
+private fun AppHeader(
+    route: Route,
+    isDark: Boolean,
+    onToggleTheme: () -> Unit,
+    onProfile: () -> Unit,
+    onBack: () -> Unit
+) {
     val p = LocalPalette.current
+    val pushed = route is Route.Section || route == Route.Downloads
+    val title = when (route) {
+        is Route.Section -> Catalogue.byId(route.id)?.title ?: "Catalogue"
+        Route.Downloads -> "Downloads"
+        else -> ""
+    }
     Row(
         Modifier
             .fillMaxWidth()
-            .padding(start = 22.dp, end = 14.dp, top = 16.dp, bottom = 12.dp),
+            .padding(start = if (pushed) 6.dp else 22.dp, end = 14.dp, top = 14.dp, bottom = 10.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Column {
-            Text(
-                "HOWVERSE",
-                fontSize = 25.sp,
-                fontWeight = FontWeight.Black,
-                letterSpacing = 2.sp,
-                color = p.text
-            )
-            Text("Learn anything. Understand everything.", color = p.softText, fontSize = 12.sp)
+        if (pushed) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.Filled.ArrowBack, "Back", tint = p.text)
+                }
+                Text(title, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = p.text)
+            }
+        } else {
+            Column {
+                Text(
+                    "HOWVERSE",
+                    fontSize = 25.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 2.sp,
+                    color = p.text
+                )
+                Text("${Catalogue.totalTopics} topics · A to Z", color = p.softText, fontSize = 12.sp)
+            }
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onToggleTheme) {
@@ -346,7 +523,7 @@ private fun Header(isDark: Boolean, onToggleTheme: () -> Unit, onOpenProfile: ()
                 border = BorderStroke(1.dp, p.cardBorder),
                 modifier = Modifier
                     .padding(start = 4.dp)
-                    .clickable { onOpenProfile() }
+                    .clickable { onProfile() }
             ) {
                 Icon(
                     Icons.Filled.Person,
@@ -375,7 +552,12 @@ private fun fieldColors(p: Palette): TextFieldColors = OutlinedTextFieldDefaults
 )
 
 @Composable
-private fun SearchBar(query: String, onQueryChange: (String) -> Unit, onAsk: (String) -> Unit, enabled: Boolean) {
+private fun SearchBar(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onAsk: (String) -> Unit,
+    placeholder: String = "What do you want to learn?"
+) {
     val p = LocalPalette.current
     Row(
         Modifier
@@ -387,7 +569,7 @@ private fun SearchBar(query: String, onQueryChange: (String) -> Unit, onAsk: (St
             value = query,
             onValueChange = onQueryChange,
             modifier = Modifier.weight(1f),
-            placeholder = { Text("What do you want to learn?", color = p.softText) },
+            placeholder = { Text(placeholder, color = p.softText) },
             leadingIcon = { Icon(Icons.Filled.Search, null, tint = p.accent) },
             shape = RoundedCornerShape(20.dp),
             colors = fieldColors(p),
@@ -396,10 +578,10 @@ private fun SearchBar(query: String, onQueryChange: (String) -> Unit, onAsk: (St
         Spacer(Modifier.width(8.dp))
         FilledIconButton(
             onClick = { onAsk(query) },
-            enabled = query.isNotBlank() && enabled,
+            enabled = query.isNotBlank(),
             modifier = Modifier.size(54.dp)
         ) {
-            Icon(Icons.Filled.ArrowForward, "Ask")
+            Icon(Icons.Filled.Send, "Ask")
         }
     }
 }
@@ -409,17 +591,20 @@ private fun ColumnScope.HomeScreen(
     query: String,
     onQueryChange: (String) -> Unit,
     onAsk: (String) -> Unit,
-    onOpenCategory: (String) -> Unit,
-    onOpenSuggestion: (String) -> Unit
+    onOpenSection: (String) -> Unit,
+    onOpenCatalogue: () -> Unit,
+    onOpenDownloads: () -> Unit,
+    language: Language,
+    onOpenLanguage: () -> Unit
 ) {
     val p = LocalPalette.current
     Column(Modifier.weight(1f)) {
-        SearchBar(query = query, onQueryChange = onQueryChange, onAsk = onAsk, enabled = true)
+        SearchBar(query = query, onQueryChange = onQueryChange, onAsk = onAsk)
         LazyColumn(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth(),
-            contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 18.dp, bottom = 18.dp),
+            contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 16.dp, bottom = 18.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             item {
@@ -428,48 +613,102 @@ private fun ColumnScope.HomeScreen(
                     shape = RoundedCornerShape(24.dp),
                     border = BorderStroke(1.dp, p.heroBorder)
                 ) {
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(18.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(Modifier.weight(1f)) {
-                            Text("Your AI learning companion", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = p.text)
-                            Spacer(Modifier.height(5.dp))
-                            Text(
-                                "Ask how to make, repair, understand or create something.",
-                                color = p.softText,
-                                fontSize = 13.sp
+                    Column(Modifier.padding(18.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    "Your AI learning companion",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 18.sp,
+                                    color = p.text
+                                )
+                                Spacer(Modifier.height(5.dp))
+                                Text(
+                                    "${Catalogue.totalTopics} how-to topics, ${Catalogue.sections.size} " +
+                                        "sections, ${Languages.all.size} languages.",
+                                    color = p.softText,
+                                    fontSize = 13.sp,
+                                    lineHeight = 18.sp
+                                )
+                            }
+                            Icon(
+                                Icons.Filled.AutoAwesome,
+                                null,
+                                tint = p.accent,
+                                modifier = Modifier.size(36.dp)
                             )
                         }
-                        Icon(Icons.Filled.AutoAwesome, null, tint = p.accent, modifier = Modifier.size(38.dp))
+                        Spacer(Modifier.height(14.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            SmallAction(
+                                label = "A–Z catalogue",
+                                icon = Icons.Filled.MenuBook,
+                                filled = true,
+                                onClick = onOpenCatalogue
+                            )
+                            SmallAction(
+                                label = language.label,
+                                icon = Icons.Filled.Translate,
+                                filled = false,
+                                onClick = onOpenLanguage
+                            )
+                            SmallAction(
+                                label = "Downloads",
+                                icon = Icons.Filled.Download,
+                                filled = false,
+                                onClick = onOpenDownloads
+                            )
+                        }
                     }
                 }
             }
-            item { SectionTitle("Explore categories") }
-            items(categories.chunked(2)) { pair ->
+            item {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "Browse A to Z",
+                        fontSize = 19.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = p.text,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text("${Catalogue.sections.size} sections", color = p.softText, fontSize = 12.sp)
+                }
+            }
+            items(Catalogue.sections.chunked(2)) { pair ->
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    pair.forEach { category ->
-                        Surface(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clickable { onOpenCategory(category.title) },
-                            color = p.glass,
-                            shape = RoundedCornerShape(19.dp),
-                            border = BorderStroke(1.dp, p.cardBorder)
-                        ) {
-                            Column(Modifier.padding(16.dp)) {
-                                Icon(category.icon, null, tint = p.accent, modifier = Modifier.size(25.dp))
-                                Spacer(Modifier.height(12.dp))
-                                Text(category.title, fontWeight = FontWeight.SemiBold, color = p.text, fontSize = 14.sp)
-                            }
-                        }
+                    pair.forEach { section ->
+                        SectionTile(section = section, onClick = { onOpenSection(section.id) })
                     }
                     if (pair.size == 1) Spacer(Modifier.weight(1f))
                 }
             }
-            item { SectionTitle("Popular things to learn") }
+            item {
+                Spacer(Modifier.height(4.dp))
+                Text("Learning modes", fontSize = 19.sp, fontWeight = FontWeight.Bold, color = p.text)
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Catalogue.modes.forEach { mode ->
+                        Surface(
+                            color = p.glass,
+                            shape = RoundedCornerShape(999.dp),
+                            border = BorderStroke(1.dp, p.cardBorder)
+                        ) {
+                            Text(
+                                mode,
+                                color = p.softText,
+                                fontSize = 12.sp,
+                                modifier = Modifier.padding(horizontal = 13.dp, vertical = 8.dp)
+                            )
+                        }
+                    }
+                }
+            }
+            item {
+                Text("Popular things to learn", fontSize = 19.sp, fontWeight = FontWeight.Bold, color = p.text)
+            }
             items(starterQuestions) { suggestion ->
                 Surface(
                     color = p.panel,
@@ -477,13 +716,18 @@ private fun ColumnScope.HomeScreen(
                     border = BorderStroke(1.dp, p.cardBorder),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { onOpenSuggestion(suggestion) }
+                        .clickable { onAsk(suggestion) }
                 ) {
                     Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Filled.Lightbulb, null, tint = p.accent, modifier = Modifier.size(22.dp))
                         Spacer(Modifier.width(10.dp))
                         Text(suggestion, modifier = Modifier.weight(1f), fontSize = 14.sp, color = p.text)
-                        Icon(Icons.Filled.ChevronRight, null, tint = p.softText, modifier = Modifier.size(22.dp))
+                        Icon(
+                            Icons.Filled.ChevronRight,
+                            null,
+                            tint = p.softText,
+                            modifier = Modifier.size(22.dp)
+                        )
                     }
                 }
             }
@@ -492,80 +736,339 @@ private fun ColumnScope.HomeScreen(
 }
 
 @Composable
-private fun SectionTitle(text: String) {
+private fun SmallAction(label: String, icon: ImageVector, filled: Boolean, onClick: () -> Unit) {
     val p = LocalPalette.current
-    Text(text, fontSize = 19.sp, fontWeight = FontWeight.Bold, color = p.text)
+    Surface(
+        color = if (filled) p.accent else p.glass,
+        shape = RoundedCornerShape(13.dp),
+        border = BorderStroke(1.dp, if (filled) p.accent else p.cardBorder),
+        modifier = Modifier.clickable { onClick() }
+    ) {
+        Row(
+            Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                icon,
+                null,
+                tint = if (filled) p.onAccent else p.accent,
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(Modifier.width(6.dp))
+            Text(
+                label,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+                color = if (filled) p.onAccent else p.text
+            )
+        }
+    }
 }
 
 @Composable
-private fun ColumnScope.ExploreScreen(onOpenCategory: (String) -> Unit, onOpenSuggestion: (String) -> Unit) {
+private fun RowScope.SectionTile(section: Section, onClick: () -> Unit) {
     val p = LocalPalette.current
+    val bitmap = sectionArt(section.art)
+    Surface(
+        modifier = Modifier
+            .weight(1f)
+            .clickable { onClick() },
+        color = p.glass,
+        shape = RoundedCornerShape(19.dp),
+        border = BorderStroke(1.dp, p.cardBorder)
+    ) {
+        Column {
+            if (bitmap != null) {
+                Image(
+                    bitmap = bitmap,
+                    contentDescription = section.title,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(84.dp)
+                )
+            }
+            Column(Modifier.padding(13.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        section.letter,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Black,
+                        color = p.accent
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text("${section.topics.size}", fontSize = 11.sp, color = p.softText)
+                }
+                Spacer(Modifier.height(3.dp))
+                Text(
+                    section.title,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = p.text,
+                    maxLines = 2,
+                    lineHeight = 17.sp
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ColumnScope.CatalogueScreen(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onOpenSection: (String) -> Unit,
+    onAskTopic: (String) -> Unit,
+    onVideoTopic: (String) -> Unit
+) {
+    val p = LocalPalette.current
+    val results = remember(query) { Catalogue.search(query) }
+    val sections = remember(query) { Catalogue.sectionsMatching(query) }
+
+    Column(Modifier.weight(1f)) {
+        SearchBar(
+            query = query,
+            onQueryChange = onQueryChange,
+            onAsk = { onAskTopic(it) },
+            placeholder = "Search ${Catalogue.totalTopics} topics"
+        )
+        LazyColumn(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+            contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 14.dp, bottom = 18.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            if (query.isNotBlank() && results.isNotEmpty()) {
+                item {
+                    Text(
+                        "${results.size} matching topics",
+                        color = p.softText,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+                }
+                items(results.take(60)) { pair ->
+                    val section = pair.first
+                    val topic = pair.second
+                    Surface(
+                        color = p.panel,
+                        shape = RoundedCornerShape(15.dp),
+                        border = BorderStroke(1.dp, p.cardBorder),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onAskTopic(topic) }
+                    ) {
+                        Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                section.letter,
+                                fontWeight = FontWeight.Black,
+                                fontSize = 13.sp,
+                                color = p.accent,
+                                modifier = Modifier.width(22.dp)
+                            )
+                            Column(Modifier.weight(1f)) {
+                                Text(topic, fontSize = 14.sp, color = p.text)
+                                Text(section.title, fontSize = 11.sp, color = p.softText)
+                            }
+                            IconButton(onClick = { onVideoTopic(topic) }) {
+                                Icon(
+                                    Icons.Filled.PlayArrow,
+                                    "Videos",
+                                    tint = p.accent,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            } else {
+                if (query.isNotBlank()) {
+                    item {
+                        Text(
+                            "No topic matches \"$query\". Ask the AI instead — it can explain anything.",
+                            color = p.softText,
+                            fontSize = 12.sp,
+                            lineHeight = 17.sp
+                        )
+                    }
+                }
+                items(sections) { section ->
+                    Surface(
+                        color = p.glass,
+                        shape = RoundedCornerShape(18.dp),
+                        border = BorderStroke(1.dp, p.cardBorder),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onOpenSection(section.id) }
+                    ) {
+                        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            val bitmap = sectionArt(section.art)
+                            Surface(shape = RoundedCornerShape(12.dp), color = p.indicator) {
+                                if (bitmap != null) {
+                                    Image(
+                                        bitmap = bitmap,
+                                        contentDescription = null,
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier.size(56.dp)
+                                    )
+                                } else {
+                                    Box(Modifier.size(56.dp))
+                                }
+                            }
+                            Spacer(Modifier.width(13.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    "${section.letter} · ${section.title}",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = p.text
+                                )
+                                Text(
+                                    "${section.topics.size} topics · ${section.blurb}",
+                                    fontSize = 11.sp,
+                                    color = p.softText,
+                                    maxLines = 2,
+                                    lineHeight = 15.sp
+                                )
+                            }
+                            Icon(
+                                Icons.Filled.ChevronRight,
+                                null,
+                                tint = p.softText,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ColumnScope.SectionScreen(
+    section: Section,
+    language: Language,
+    onAsk: (String) -> Unit,
+    onVideo: (String) -> Unit,
+    onDownload: () -> Unit
+) {
+    val p = LocalPalette.current
+    val bitmap = sectionArt(section.art)
     LazyColumn(
         modifier = Modifier
             .weight(1f)
             .fillMaxWidth(),
-        contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 12.dp, bottom = 18.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 6.dp, bottom = 18.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
-            Text("Your learning space", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = p.text)
-            Spacer(Modifier.height(6.dp))
-            Text(
-                "Ten categories, each with a one-tap lesson. Tap any card and HOWVERSE AI starts teaching.",
-                color = p.softText,
-                fontSize = 13.sp
-            )
-            Spacer(Modifier.height(10.dp))
-        }
-        items(categories) { category ->
-            Surface(
-                color = p.glass,
-                shape = RoundedCornerShape(18.dp),
-                border = BorderStroke(1.dp, p.cardBorder),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onOpenCategory(category.title) }
-            ) {
-                Row(
-                    Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Surface(color = p.indicator, shape = RoundedCornerShape(13.dp)) {
-                        Icon(
-                            category.icon,
-                            null,
-                            tint = p.accent,
-                            modifier = Modifier.padding(9.dp).size(22.dp)
-                        )
-                    }
-                    Spacer(Modifier.width(14.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(category.title, fontWeight = FontWeight.SemiBold, color = p.text, fontSize = 15.sp)
-                        Text(category.blurb, color = p.softText, fontSize = 12.sp)
-                    }
-                    Icon(Icons.Filled.ChevronRight, null, tint = p.softText, modifier = Modifier.size(22.dp))
+            Surface(shape = RoundedCornerShape(20.dp), color = p.panel) {
+                if (bitmap != null) {
+                    Image(
+                        bitmap = bitmap,
+                        contentDescription = section.title,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(180.dp)
+                    )
                 }
             }
         }
         item {
+            Text(
+                "${section.letter} · ${section.title}",
+                fontSize = 21.sp,
+                fontWeight = FontWeight.Bold,
+                color = p.text
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(section.blurb, color = p.softText, fontSize = 13.sp, lineHeight = 18.sp)
             Spacer(Modifier.height(6.dp))
-            SectionTitle("Try one of these")
-            Spacer(Modifier.height(8.dp))
+            Text(
+                "${section.topics.size} topics · taught in ${language.label}",
+                color = p.accent,
+                fontSize = 12.sp
+            )
         }
-        items(starterQuestions) { suggestion ->
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                SmallAction(
+                    label = "Ask AI",
+                    icon = Icons.Filled.AutoAwesome,
+                    filled = true,
+                    onClick = { onAsk("Teach me the basics of ${section.title}") }
+                )
+                SmallAction(
+                    label = "Videos",
+                    icon = Icons.Filled.PlayArrow,
+                    filled = false,
+                    onClick = { onVideo(section.title) }
+                )
+                SmallAction(
+                    label = "Download",
+                    icon = Icons.Filled.Download,
+                    filled = false,
+                    onClick = onDownload
+                )
+            }
+        }
+        item {
+            Text("Learning modes", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = p.text)
+            Spacer(Modifier.height(6.dp))
+            Row(
+                Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Catalogue.modes.forEach { mode ->
+                    Surface(
+                        color = p.glass,
+                        shape = RoundedCornerShape(999.dp),
+                        border = BorderStroke(1.dp, p.cardBorder)
+                    ) {
+                        Text(
+                            mode,
+                            color = p.softText,
+                            fontSize = 11.sp,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
+                        )
+                    }
+                }
+            }
+        }
+        item {
+            Text(
+                "Topics",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = p.text,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+        }
+        items(section.topics) { topic ->
             Surface(
                 color = p.panel,
                 shape = RoundedCornerShape(15.dp),
                 border = BorderStroke(1.dp, p.cardBorder),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { onOpenSuggestion(suggestion) }
+                    .clickable { onAsk(topic) }
             ) {
-                Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.Lightbulb, null, tint = p.accent, modifier = Modifier.size(22.dp))
-                    Spacer(Modifier.width(10.dp))
-                    Text(suggestion, modifier = Modifier.weight(1f), fontSize = 14.sp, color = p.text)
-                    Icon(Icons.Filled.ChevronRight, null, tint = p.softText, modifier = Modifier.size(22.dp))
+                Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Filled.School, null, tint = p.accent, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(11.dp))
+                    Text(topic, modifier = Modifier.weight(1f), fontSize = 14.sp, color = p.text)
+                    IconButton(onClick = { onVideo(topic) }) {
+                        Icon(
+                            Icons.Filled.PlayArrow,
+                            "Videos",
+                            tint = p.accent,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Icon(Icons.Filled.ChevronRight, null, tint = p.softText, modifier = Modifier.size(18.dp))
                 }
             }
         }
@@ -577,9 +1080,12 @@ private fun ColumnScope.ChatScreen(
     messages: List<ChatMessage>,
     loading: Boolean,
     backendUrl: String,
+    language: Language,
+    voiceNote: String,
     onAsk: (String) -> Unit,
     onSpeak: (String) -> Unit,
     onSave: (ChatMessage) -> Unit,
+    onDownload: (ChatMessage) -> Unit,
     onClear: () -> Unit
 ) {
     val p = LocalPalette.current
@@ -587,27 +1093,30 @@ private fun ColumnScope.ChatScreen(
     var input by remember { mutableStateOf("") }
 
     LaunchedEffect(messages.size, messages.lastOrNull()?.pending) {
-        if (messages.isNotEmpty()) {
-            listState.animateScrollToItem(messages.size - 1)
-        }
+        if (messages.isNotEmpty()) listState.animateScrollToItem(messages.size - 1)
     }
 
     Column(Modifier.weight(1f)) {
         Row(
             Modifier
                 .fillMaxWidth()
-                .padding(start = 18.dp, end = 10.dp, top = 4.dp, bottom = 6.dp),
+                .padding(start = 18.dp, end = 10.dp, top = 2.dp, bottom = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(Icons.Filled.AutoAwesome, null, tint = p.accent, modifier = Modifier.size(20.dp))
             Spacer(Modifier.width(8.dp))
             Text("HOWVERSE AI", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = p.text)
             Spacer(Modifier.width(8.dp))
-            StatusChip(live = backendUrl.isNotBlank())
+            StatusChip(live = backendUrl.isNotBlank(), label = language.label)
             Spacer(Modifier.weight(1f))
             if (messages.isNotEmpty()) {
                 IconButton(onClick = onClear) {
-                    Icon(Icons.Filled.Delete, "Clear conversation", tint = p.softText, modifier = Modifier.size(20.dp))
+                    Icon(
+                        Icons.Filled.Delete,
+                        "Clear conversation",
+                        tint = p.softText,
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
             }
         }
@@ -617,7 +1126,7 @@ private fun ColumnScope.ChatScreen(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth(),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 10.dp),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 10.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             if (messages.isEmpty()) {
@@ -628,21 +1137,36 @@ private fun ColumnScope.ChatScreen(
                         border = BorderStroke(1.dp, p.cardBorder)
                     ) {
                         Column(Modifier.padding(18.dp)) {
-                            Text("Hi, I'm HOWVERSE AI", fontWeight = FontWeight.Bold, fontSize = 17.sp, color = p.text)
+                            Text(
+                                "Hi, I'm HOWVERSE AI",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 17.sp,
+                                color = p.text
+                            )
                             Spacer(Modifier.height(6.dp))
                             Text(
-                                "Ask me how to make, repair, understand or create anything. " +
-                                    "I answer in plain language, step by step.",
+                                "Ask me about any of the ${Catalogue.totalTopics} topics in the " +
+                                    "A–Z catalogue — or anything else. I answer in ${language.label}, " +
+                                    "step by step.",
                                 color = p.softText,
                                 fontSize = 13.sp,
                                 lineHeight = 19.sp
                             )
+                            if (voiceNote.isNotBlank()) {
+                                Spacer(Modifier.height(8.dp))
+                                Text(voiceNote, color = p.softText, fontSize = 11.sp, lineHeight = 15.sp)
+                            }
                         }
                     }
                 }
                 item {
                     Column(Modifier.padding(top = 4.dp)) {
-                        Text("Try asking", color = p.softText, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                        Text(
+                            "Try asking",
+                            color = p.softText,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
                         Spacer(Modifier.height(8.dp))
                         starterQuestions.forEach { suggestion ->
                             Surface(
@@ -655,7 +1179,12 @@ private fun ColumnScope.ChatScreen(
                                     .clickable { onAsk(suggestion) }
                             ) {
                                 Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Filled.Lightbulb, null, tint = p.accent, modifier = Modifier.size(18.dp))
+                                    Icon(
+                                        Icons.Filled.Lightbulb,
+                                        null,
+                                        tint = p.accent,
+                                        modifier = Modifier.size(18.dp)
+                                    )
                                     Spacer(Modifier.width(9.dp))
                                     Text(suggestion, fontSize = 13.sp, color = p.text)
                                 }
@@ -683,7 +1212,7 @@ private fun ColumnScope.ChatScreen(
                         }
                     }
                 } else {
-                    AiBubble(message = message, onSpeak = onSpeak, onSave = onSave)
+                    AiBubble(message = message, onSpeak = onSpeak, onSave = onSave, onDownload = onDownload)
                 }
             }
         }
@@ -698,7 +1227,9 @@ private fun ColumnScope.ChatScreen(
                 value = input,
                 onValueChange = { input = it },
                 modifier = Modifier.weight(1f),
-                placeholder = { Text("Ask HOWVERSE anything…", color = p.softText, fontSize = 14.sp) },
+                placeholder = {
+                    Text("Ask HOWVERSE in ${language.label}…", color = p.softText, fontSize = 14.sp)
+                },
                 shape = RoundedCornerShape(20.dp),
                 colors = fieldColors(p),
                 maxLines = 3
@@ -720,7 +1251,7 @@ private fun ColumnScope.ChatScreen(
 }
 
 @Composable
-private fun StatusChip(live: Boolean) {
+private fun StatusChip(live: Boolean, label: String) {
     val p = LocalPalette.current
     Surface(
         color = if (live) p.indicator else p.panel,
@@ -736,7 +1267,7 @@ private fun StatusChip(live: Boolean) {
                 Spacer(Modifier.width(4.dp))
             }
             Text(
-                if (live) "Live AI" else "Offline",
+                if (live) label else "Offline · $label",
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Medium,
                 color = if (live) p.accent else p.softText
@@ -746,7 +1277,12 @@ private fun StatusChip(live: Boolean) {
 }
 
 @Composable
-private fun AiBubble(message: ChatMessage, onSpeak: (String) -> Unit, onSave: (ChatMessage) -> Unit) {
+private fun AiBubble(
+    message: ChatMessage,
+    onSpeak: (String) -> Unit,
+    onSave: (ChatMessage) -> Unit,
+    onDownload: (ChatMessage) -> Unit
+) {
     val p = LocalPalette.current
     val clipboard = LocalClipboardManager.current
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
@@ -768,15 +1304,15 @@ private fun AiBubble(message: ChatMessage, onSpeak: (String) -> Unit, onSave: (C
                         Text("Thinking…", color = p.softText, fontSize = 13.sp)
                     }
                 } else {
-                    Text(
-                        message.text,
-                        color = p.text,
-                        fontSize = 14.sp,
-                        lineHeight = 21.sp
-                    )
+                    Text(message.text, color = p.text, fontSize = 14.sp, lineHeight = 21.sp)
                     if (message.sources.isNotEmpty()) {
                         Spacer(Modifier.height(10.dp))
-                        Text("Web sources used", fontWeight = FontWeight.Bold, color = p.accent, fontSize = 12.sp)
+                        Text(
+                            "Web sources used",
+                            fontWeight = FontWeight.Bold,
+                            color = p.accent,
+                            fontSize = 12.sp
+                        )
                         message.sources.forEach { source ->
                             Text("• $source", color = p.softText, fontSize = 11.sp, lineHeight = 16.sp)
                         }
@@ -791,22 +1327,50 @@ private fun AiBubble(message: ChatMessage, onSpeak: (String) -> Unit, onSave: (C
                                 modifier = Modifier.size(13.dp)
                             )
                             Spacer(Modifier.width(6.dp))
-                            Text(message.notice, color = p.softText, fontSize = 11.sp, lineHeight = 15.sp)
+                            Text(
+                                message.notice,
+                                color = p.softText,
+                                fontSize = 11.sp,
+                                lineHeight = 15.sp
+                            )
                         }
                     }
                     Spacer(Modifier.height(6.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         IconButton(onClick = { onSpeak(message.text) }, modifier = Modifier.size(32.dp)) {
-                            Icon(Icons.Filled.VolumeUp, "Read aloud", tint = p.accent, modifier = Modifier.size(17.dp))
+                            Icon(
+                                Icons.Filled.VolumeUp,
+                                "Read aloud",
+                                tint = p.accent,
+                                modifier = Modifier.size(17.dp)
+                            )
                         }
                         IconButton(onClick = { onSave(message) }, modifier = Modifier.size(32.dp)) {
-                            Icon(Icons.Filled.BookmarkAdd, "Save lesson", tint = p.accent, modifier = Modifier.size(17.dp))
+                            Icon(
+                                Icons.Filled.BookmarkAdd,
+                                "Save lesson",
+                                tint = p.accent,
+                                modifier = Modifier.size(17.dp)
+                            )
+                        }
+                        IconButton(onClick = { onDownload(message) }, modifier = Modifier.size(32.dp)) {
+                            Icon(
+                                Icons.Filled.Download,
+                                "Download lesson",
+                                tint = p.accent,
+                                modifier = Modifier.size(17.dp)
+                            )
                         }
                         IconButton(
                             onClick = { clipboard.setText(AnnotatedString(message.text)) },
                             modifier = Modifier.size(32.dp)
                         ) {
-                            Icon(Icons.Filled.ContentCopy, "Copy", tint = p.softText, modifier = Modifier.size(16.dp))
+                            Icon(
+                                Icons.Filled.ContentCopy,
+                                "Copy",
+                                tint = p.softText,
+                                modifier = Modifier.size(16.dp)
+                            )
                         }
                         Spacer(Modifier.weight(1f))
                         Text(
@@ -822,7 +1386,11 @@ private fun AiBubble(message: ChatMessage, onSpeak: (String) -> Unit, onSave: (C
 }
 
 @Composable
-private fun ColumnScope.SavedScreen(saved: List<SavedLesson>, onOpen: (SavedLesson) -> Unit, onDelete: (SavedLesson) -> Unit) {
+private fun ColumnScope.SavedScreen(
+    saved: List<SavedLesson>,
+    onOpen: (SavedLesson) -> Unit,
+    onDelete: (SavedLesson) -> Unit
+) {
     val p = LocalPalette.current
     LazyColumn(
         modifier = Modifier
@@ -852,8 +1420,7 @@ private fun ColumnScope.SavedScreen(saved: List<SavedLesson>, onOpen: (SavedLess
                         Text("Your saved lessons will appear here.", color = p.text, fontSize = 14.sp)
                         Spacer(Modifier.height(6.dp))
                         Text(
-                            "Ask something in the AI tab and tap the bookmark icon on any answer. " +
-                                "Saved lessons now survive an app restart.",
+                            "Ask something in the AI tab and tap the bookmark icon on any answer.",
                             color = p.softText,
                             fontSize = 12.sp,
                             lineHeight = 17.sp
@@ -883,7 +1450,135 @@ private fun ColumnScope.SavedScreen(saved: List<SavedLesson>, onOpen: (SavedLess
                         )
                     }
                     IconButton(onClick = { onDelete(item) }) {
-                        Icon(Icons.Filled.Delete, "Delete", tint = p.softText, modifier = Modifier.size(18.dp))
+                        Icon(
+                            Icons.Filled.Delete,
+                            "Delete",
+                            tint = p.softText,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ColumnScope.DownloadsScreen(
+    packUrl: String,
+    onPackUrlChange: (String) -> Unit,
+    packs: List<File>,
+    busy: Boolean,
+    status: String,
+    onDownloadPack: () -> Unit,
+    onDeletePack: (File) -> Unit
+) {
+    val p = LocalPalette.current
+    var draft by remember { mutableStateOf(packUrl) }
+
+    LazyColumn(
+        modifier = Modifier
+            .weight(1f)
+            .fillMaxWidth(),
+        contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 8.dp, bottom = 18.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        item {
+            SettingsCard(
+                title = "Save lessons to your phone",
+                subtitle = "Every AI answer has a download button. Tap it and the lesson is written " +
+                    "as a .txt file in Downloads/HOWVERSE — in whatever language you chose."
+            ) {
+                Text(
+                    "Sections can be downloaded too: open any A–Z section and tap Download to get " +
+                        "all of its topics as a checklist you can keep offline.",
+                    color = p.softText,
+                    fontSize = 11.sp,
+                    lineHeight = 16.sp
+                )
+            }
+        }
+        item {
+            SettingsCard(
+                title = "Topic packs",
+                subtitle = "Point HOWVERSE at a JSON pack URL and it stores the pack on the device " +
+                    "for offline browsing."
+            ) {
+                OutlinedTextField(
+                    value = draft,
+                    onValueChange = {
+                        draft = it
+                        onPackUrlChange(it)
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = {
+                        Text("https://example.com/pack.json", color = p.softText, fontSize = 13.sp)
+                    },
+                    shape = RoundedCornerShape(14.dp),
+                    colors = fieldColors(p),
+                    singleLine = true
+                )
+                Spacer(Modifier.height(10.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(
+                        color = p.accent,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.clickable(enabled = !busy) { onDownloadPack() }
+                    ) {
+                        Text(
+                            if (busy) "Downloading…" else "Download pack",
+                            color = p.onAccent,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 9.dp)
+                        )
+                    }
+                    Spacer(Modifier.width(10.dp))
+                    if (status.isNotBlank()) {
+                        Text(status, color = p.softText, fontSize = 11.sp, lineHeight = 15.sp)
+                    }
+                }
+            }
+        }
+        item {
+            Text("Downloaded packs", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = p.text)
+        }
+        if (packs.isEmpty()) {
+            item {
+                Text(
+                    "No packs yet. Lessons and sections you download go to your phone's Downloads " +
+                        "folder, not here.",
+                    color = p.softText,
+                    fontSize = 12.sp,
+                    lineHeight = 17.sp
+                )
+            }
+        }
+        items(packs) { file ->
+            Surface(
+                color = p.panel,
+                shape = RoundedCornerShape(15.dp),
+                border = BorderStroke(1.dp, p.cardBorder),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Filled.Download, null, tint = p.accent, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(file.name, color = p.text, fontSize = 13.sp)
+                        Text(
+                            "${file.length() / 1024} KB · stored on device",
+                            color = p.softText,
+                            fontSize = 11.sp
+                        )
+                    }
+                    IconButton(onClick = { onDeletePack(file) }) {
+                        Icon(
+                            Icons.Filled.Delete,
+                            "Delete pack",
+                            tint = p.softText,
+                            modifier = Modifier.size(18.dp)
+                        )
                     }
                 }
             }
@@ -895,26 +1590,71 @@ private fun ColumnScope.SavedScreen(saved: List<SavedLesson>, onOpen: (SavedLess
 private fun ColumnScope.ProfileScreen(
     themeMode: String,
     onThemeMode: (String) -> Unit,
+    language: Language,
+    onLanguage: (String) -> Unit,
+    voiceNote: String,
     backendUrl: String,
     onBackendUrlChange: (String) -> Unit,
-    savedCount: Int
+    savedCount: Int,
+    onOpenDownloads: () -> Unit,
+    onTestVoice: () -> Unit
 ) {
     val p = LocalPalette.current
     var draft by remember { mutableStateOf(backendUrl) }
     var savedFlag by remember { mutableStateOf(false) }
+    var showLanguages by remember { mutableStateOf(false) }
+
+    if (showLanguages) {
+        AlertDialog(
+            onDismissRequest = { showLanguages = false },
+            confirmButton = {
+                TextButton(onClick = { showLanguages = false }) { Text("Done", color = p.accent) }
+            },
+            title = { Text("Teaching language", color = p.text) },
+            text = {
+                LazyColumn(Modifier.height(400.dp)) {
+                    items(Languages.all) { item ->
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    onLanguage(item.code)
+                                    showLanguages = false
+                                }
+                                .padding(vertical = 11.dp, horizontal = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                item.label,
+                                modifier = Modifier.weight(1f),
+                                color = if (item.code == language.code) p.accent else p.text,
+                                fontSize = 14.sp,
+                                fontWeight = if (item.code == language.code) {
+                                    FontWeight.SemiBold
+                                } else {
+                                    FontWeight.Normal
+                                }
+                            )
+                            Text(item.tag, color = p.softText, fontSize = 11.sp)
+                        }
+                    }
+                }
+            },
+            containerColor = p.panel
+        )
+    }
 
     LazyColumn(
         modifier = Modifier
             .weight(1f)
             .fillMaxWidth(),
-        contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 12.dp, bottom = 18.dp),
+        contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 8.dp, bottom = 18.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
             Text("Settings", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = p.text)
-            Text("Theme, AI backend and app details.", color = p.softText, fontSize = 12.sp)
+            Text("Theme, language, AI backend and downloads.", color = p.softText, fontSize = 12.sp)
         }
-
         item {
             SettingsCard(title = "Appearance", subtitle = "Choose how HOWVERSE looks.") {
                 Row(
@@ -929,7 +1669,51 @@ private fun ColumnScope.ProfileScreen(
                 }
             }
         }
-
+        item {
+            SettingsCard(
+                title = "Language",
+                subtitle = "Lessons are requested in this language and read aloud with the matching " +
+                    "device voice. ${Languages.all.size} languages available."
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(
+                        color = p.accent,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.clickable { showLanguages = true }
+                    ) {
+                        Row(
+                            Modifier.padding(horizontal = 15.dp, vertical = 9.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Filled.Translate,
+                                null,
+                                tint = p.onAccent,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(Modifier.width(7.dp))
+                            Text(
+                                language.label,
+                                color = p.onAccent,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        "Test voice",
+                        color = p.accent,
+                        fontSize = 13.sp,
+                        modifier = Modifier.clickable { onTestVoice() }
+                    )
+                }
+                if (voiceNote.isNotBlank()) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(voiceNote, color = p.softText, fontSize = 11.sp, lineHeight = 15.sp)
+                }
+            }
+        }
         item {
             SettingsCard(
                 title = "AI backend",
@@ -942,7 +1726,9 @@ private fun ColumnScope.ProfileScreen(
                         savedFlag = false
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("https://your-ai-server.example", color = p.softText, fontSize = 13.sp) },
+                    placeholder = {
+                        Text("https://your-ai-server.example", color = p.softText, fontSize = 13.sp)
+                    },
                     shape = RoundedCornerShape(14.dp),
                     colors = fieldColors(p),
                     singleLine = true
@@ -970,30 +1756,43 @@ private fun ColumnScope.ProfileScreen(
                         when {
                             savedFlag -> "Saved"
                             backendUrl.isBlank() -> "Offline mode"
-                            else -> "Connected: ${backendUrl.removePrefix("https://").removePrefix("http://")}"
+                            else -> "Connected: " + backendUrl
+                                .removePrefix("https://")
+                                .removePrefix("http://")
                         },
                         color = if (savedFlag) p.good else p.softText,
                         fontSize = 11.sp,
                         lineHeight = 15.sp
                     )
                 }
-                Spacer(Modifier.height(10.dp))
-                Text(
-                    "The app calls POST <url>/api/learn with {question, category, language}. " +
-                        "Keep your provider key on the server — never in the app.",
-                    color = p.softText,
-                    fontSize = 11.sp,
-                    lineHeight = 16.sp
-                )
             }
         }
-
         item {
-            SettingsCard(title = "About", subtitle = "HOWVERSE 1.1") {
+            SettingsCard(title = "Downloads", subtitle = "Saved lessons and topic packs.") {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.clickable { onOpenDownloads() }
+                ) {
+                    Icon(Icons.Filled.Download, null, tint = p.accent, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(9.dp))
+                    Text(
+                        "Open downloads",
+                        color = p.text,
+                        fontSize = 14.sp,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Icon(Icons.Filled.ChevronRight, null, tint = p.softText, modifier = Modifier.size(20.dp))
+                }
+            }
+        }
+        item {
+            SettingsCard(title = "About", subtitle = "HOWVERSE 2.0") {
                 Text(
-                    "Kotlin + Jetpack Compose. $savedCount saved lesson(s) on this device. " +
-                        "Offline answers come from a hand-written library of guides; connect an AI " +
-                        "backend for live, model-generated lessons.",
+                    "${Catalogue.totalTopics} topics across ${Catalogue.sections.size} sections, " +
+                        "${Catalogue.modes.size} learning modes and ${Languages.all.size} languages. " +
+                        "$savedCount saved lesson(s) on this device. Offline answers come from a " +
+                        "hand-written library of guides; connect an AI backend for live, " +
+                        "model-generated lessons in any language.",
                     color = p.softText,
                     fontSize = 12.sp,
                     lineHeight = 17.sp
@@ -1055,21 +1854,28 @@ private fun SettingsCard(title: String, subtitle: String, content: @Composable (
 }
 
 @Composable
-private fun BottomBar(tab: String, onTab: (String) -> Unit) {
+private fun BottomBar(route: Route, onTab: (String) -> Unit) {
     val p = LocalPalette.current
+    val active = when (route) {
+        Route.Home -> "Home"
+        Route.Catalogue, is Route.Section -> "Catalogue"
+        Route.Chat -> "AI"
+        Route.Saved -> "Saved"
+        else -> "Profile"
+    }
     NavigationBar(containerColor = p.navBg) {
         listOf(
-            TAB_HOME to Icons.Filled.Home,
-            TAB_EXPLORE to Icons.Filled.Explore,
-            TAB_AI to Icons.Filled.AutoAwesome,
-            TAB_SAVED to Icons.Filled.Bookmarks,
-            TAB_PROFILE to Icons.Filled.Person
+            "Home" to Icons.Filled.Home,
+            "Catalogue" to Icons.Filled.MenuBook,
+            "AI" to Icons.Filled.AutoAwesome,
+            "Saved" to Icons.Filled.Bookmarks,
+            "Profile" to Icons.Filled.Person
         ).forEach { (name, icon) ->
             NavigationBarItem(
-                selected = tab == name,
+                selected = active == name,
                 onClick = { onTab(name) },
                 icon = { Icon(icon, null) },
-                label = { Text(name) },
+                label = { Text(name, fontSize = 10.sp) },
                 colors = NavigationBarItemDefaults.colors(
                     selectedIconColor = p.accent,
                     selectedTextColor = p.accent,

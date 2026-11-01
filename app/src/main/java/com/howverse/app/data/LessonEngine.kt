@@ -23,17 +23,31 @@ object LessonEngine {
         .callTimeout(60, TimeUnit.SECONDS)
         .build()
 
-    suspend fun ask(question: String, category: String, backendUrl: String): Lesson {
+    suspend fun ask(
+        question: String,
+        category: String,
+        backendUrl: String,
+        language: String = "English"
+    ): Lesson {
         val base = backendUrl.trim().trimEnd('/')
         if (base.isBlank() || !base.startsWith("http")) {
-            return OfflineBrain.lesson(question, category)
+            val offline = OfflineBrain.lesson(question, category)
+            return if (language.equals("English", true)) offline else offline.copy(
+                notice = "The built-in offline library is English only. Add your AI backend URL " +
+                    "in Profile to get answers in $language."
+            )
         }
         return withContext(Dispatchers.IO) {
             try {
                 val payload = JSONObject()
                     .put("question", question)
                     .put("category", category)
-                    .put("language", "simple English; use Hindi if the user asks in Hindi")
+                    .put("language", language)
+                    .put(
+                        "instruction",
+                        "Answer in $language. Use simple, step-by-step language and include " +
+                            "practical examples. Refuse anything dangerous or illegal."
+                    )
                 val request = Request.Builder()
                     .url("$base/api/learn")
                     .post(payload.toString().toRequestBody(JSON_MEDIA))
