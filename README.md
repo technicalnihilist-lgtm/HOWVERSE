@@ -12,7 +12,8 @@ you can save and have read aloud.
 <img alt="Compose" src="https://img.shields.io/badge/Jetpack%20Compose-BOM%202024.12-4285F4?logo=jetpackcompose&logoColor=white">
 <img alt="minSdk" src="https://img.shields.io/badge/minSdk-26-3DDC84?logo=android&logoColor=white">
 <img alt="targetSdk" src="https://img.shields.io/badge/targetSdk-35-3DDC84?logo=android&logoColor=white">
-<img alt="License" src="https://img.shields.io/badge/license-see%20LICENSE-lightgrey">
+<img alt="Platform" src="https://img.shields.io/badge/platform-Android-3DDC84?logo=android&logoColor=white">
+<img alt="Release" src="https://img.shields.io/badge/release-v1.0.0-9DBBFF">
 </p>
 
 ---
