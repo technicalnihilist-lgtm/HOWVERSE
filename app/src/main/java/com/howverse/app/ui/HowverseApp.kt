@@ -14,6 +14,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -36,28 +37,22 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.BookmarkAdd
-import androidx.compose.material.icons.filled.Bookmarks
-import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.Create
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.LightMode
-import androidx.compose.material.icons.filled.Lightbulb
-import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Translate
-import androidx.compose.material.icons.filled.VolumeUp
-import androidx.compose.material.icons.filled.WifiOff
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledIconButton
@@ -510,11 +505,18 @@ private fun AppHeader(
             }
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onToggleTheme) {
-                Icon(
-                    if (isDark) Icons.Filled.LightMode else Icons.Filled.DarkMode,
-                    contentDescription = if (isDark) "Switch to light mode" else "Switch to dark mode",
-                    tint = p.accent
+            Surface(
+                color = p.glass,
+                shape = RoundedCornerShape(999.dp),
+                border = BorderStroke(1.dp, p.cardBorder),
+                modifier = Modifier.clickable { onToggleTheme() }
+            ) {
+                Text(
+                    if (isDark) "Light" else "Dark",
+                    color = p.accent,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(horizontal = 13.dp, vertical = 9.dp)
                 )
             }
             Surface(
@@ -632,7 +634,7 @@ private fun ColumnScope.HomeScreen(
                                 )
                             }
                             Icon(
-                                Icons.Filled.AutoAwesome,
+                                Icons.Filled.Star,
                                 null,
                                 tint = p.accent,
                                 modifier = Modifier.size(36.dp)
@@ -642,19 +644,19 @@ private fun ColumnScope.HomeScreen(
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             SmallAction(
                                 label = "A–Z catalogue",
-                                icon = Icons.Filled.MenuBook,
+                                icon = Icons.Filled.List,
                                 filled = true,
                                 onClick = onOpenCatalogue
                             )
                             SmallAction(
                                 label = language.label,
-                                icon = Icons.Filled.Translate,
+                                icon = null,
                                 filled = false,
                                 onClick = onOpenLanguage
                             )
                             SmallAction(
                                 label = "Downloads",
-                                icon = Icons.Filled.Download,
+                                icon = Icons.Filled.KeyboardArrowDown,
                                 filled = false,
                                 onClick = onOpenDownloads
                             )
@@ -719,11 +721,11 @@ private fun ColumnScope.HomeScreen(
                         .clickable { onAsk(suggestion) }
                 ) {
                     Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Filled.Lightbulb, null, tint = p.accent, modifier = Modifier.size(22.dp))
+                        Icon(Icons.Filled.Star, null, tint = p.accent, modifier = Modifier.size(22.dp))
                         Spacer(Modifier.width(10.dp))
                         Text(suggestion, modifier = Modifier.weight(1f), fontSize = 14.sp, color = p.text)
                         Icon(
-                            Icons.Filled.ChevronRight,
+                            Icons.Filled.KeyboardArrowRight,
                             null,
                             tint = p.softText,
                             modifier = Modifier.size(22.dp)
@@ -736,7 +738,7 @@ private fun ColumnScope.HomeScreen(
 }
 
 @Composable
-private fun SmallAction(label: String, icon: ImageVector, filled: Boolean, onClick: () -> Unit) {
+private fun SmallAction(label: String, icon: ImageVector?, filled: Boolean, onClick: () -> Unit) {
     val p = LocalPalette.current
     Surface(
         color = if (filled) p.accent else p.glass,
@@ -748,13 +750,15 @@ private fun SmallAction(label: String, icon: ImageVector, filled: Boolean, onCli
             Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                icon,
-                null,
-                tint = if (filled) p.onAccent else p.accent,
-                modifier = Modifier.size(16.dp)
-            )
-            Spacer(Modifier.width(6.dp))
+            if (icon != null) {
+                Icon(
+                    icon,
+                    null,
+                    tint = if (filled) p.onAccent else p.accent,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(Modifier.width(6.dp))
+            }
             Text(
                 label,
                 fontSize = 12.sp,
@@ -785,7 +789,7 @@ private fun RowScope.SectionTile(section: Section, onClick: () -> Unit) {
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(84.dp)
+                        .aspectRatio(1.71f)
                 )
             }
             Column(Modifier.padding(13.dp)) {
@@ -933,7 +937,7 @@ private fun ColumnScope.CatalogueScreen(
                                 )
                             }
                             Icon(
-                                Icons.Filled.ChevronRight,
+                                Icons.Filled.KeyboardArrowRight,
                                 null,
                                 tint = p.softText,
                                 modifier = Modifier.size(20.dp)
@@ -997,7 +1001,7 @@ private fun ColumnScope.SectionScreen(
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 SmallAction(
                     label = "Ask AI",
-                    icon = Icons.Filled.AutoAwesome,
+                    icon = Icons.Filled.Star,
                     filled = true,
                     onClick = { onAsk("Teach me the basics of ${section.title}") }
                 )
@@ -1009,7 +1013,7 @@ private fun ColumnScope.SectionScreen(
                 )
                 SmallAction(
                     label = "Download",
-                    icon = Icons.Filled.Download,
+                    icon = Icons.Filled.KeyboardArrowDown,
                     filled = false,
                     onClick = onDownload
                 )
@@ -1057,8 +1061,6 @@ private fun ColumnScope.SectionScreen(
                     .clickable { onAsk(topic) }
             ) {
                 Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.School, null, tint = p.accent, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(11.dp))
                     Text(topic, modifier = Modifier.weight(1f), fontSize = 14.sp, color = p.text)
                     IconButton(onClick = { onVideo(topic) }) {
                         Icon(
@@ -1068,7 +1070,7 @@ private fun ColumnScope.SectionScreen(
                             modifier = Modifier.size(20.dp)
                         )
                     }
-                    Icon(Icons.Filled.ChevronRight, null, tint = p.softText, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Filled.KeyboardArrowRight, null, tint = p.softText, modifier = Modifier.size(18.dp))
                 }
             }
         }
@@ -1103,7 +1105,7 @@ private fun ColumnScope.ChatScreen(
                 .padding(start = 18.dp, end = 10.dp, top = 2.dp, bottom = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(Icons.Filled.AutoAwesome, null, tint = p.accent, modifier = Modifier.size(20.dp))
+            Icon(Icons.Filled.Star, null, tint = p.accent, modifier = Modifier.size(20.dp))
             Spacer(Modifier.width(8.dp))
             Text("HOWVERSE AI", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = p.text)
             Spacer(Modifier.width(8.dp))
@@ -1180,7 +1182,7 @@ private fun ColumnScope.ChatScreen(
                             ) {
                                 Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Icon(
-                                        Icons.Filled.Lightbulb,
+                                        Icons.Filled.Star,
                                         null,
                                         tint = p.accent,
                                         modifier = Modifier.size(18.dp)
@@ -1263,7 +1265,7 @@ private fun StatusChip(live: Boolean, label: String) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (!live) {
-                Icon(Icons.Filled.WifiOff, null, tint = p.softText, modifier = Modifier.size(12.dp))
+                Icon(Icons.Filled.Warning, null, tint = p.softText, modifier = Modifier.size(12.dp))
                 Spacer(Modifier.width(4.dp))
             }
             Text(
@@ -1321,7 +1323,7 @@ private fun AiBubble(
                         Spacer(Modifier.height(10.dp))
                         Row(verticalAlignment = Alignment.Top) {
                             Icon(
-                                Icons.Filled.WifiOff,
+                                Icons.Filled.Warning,
                                 null,
                                 tint = p.softText,
                                 modifier = Modifier.size(13.dp)
@@ -1339,7 +1341,7 @@ private fun AiBubble(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         IconButton(onClick = { onSpeak(message.text) }, modifier = Modifier.size(32.dp)) {
                             Icon(
-                                Icons.Filled.VolumeUp,
+                                Icons.Filled.PlayArrow,
                                 "Read aloud",
                                 tint = p.accent,
                                 modifier = Modifier.size(17.dp)
@@ -1347,7 +1349,7 @@ private fun AiBubble(
                         }
                         IconButton(onClick = { onSave(message) }, modifier = Modifier.size(32.dp)) {
                             Icon(
-                                Icons.Filled.BookmarkAdd,
+                                Icons.Filled.Add,
                                 "Save lesson",
                                 tint = p.accent,
                                 modifier = Modifier.size(17.dp)
@@ -1355,7 +1357,7 @@ private fun AiBubble(
                         }
                         IconButton(onClick = { onDownload(message) }, modifier = Modifier.size(32.dp)) {
                             Icon(
-                                Icons.Filled.Download,
+                                Icons.Filled.KeyboardArrowDown,
                                 "Download lesson",
                                 tint = p.accent,
                                 modifier = Modifier.size(17.dp)
@@ -1366,7 +1368,7 @@ private fun AiBubble(
                             modifier = Modifier.size(32.dp)
                         ) {
                             Icon(
-                                Icons.Filled.ContentCopy,
+                                Icons.Filled.Create,
                                 "Copy",
                                 tint = p.softText,
                                 modifier = Modifier.size(16.dp)
@@ -1562,7 +1564,7 @@ private fun ColumnScope.DownloadsScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.Download, null, tint = p.accent, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Filled.KeyboardArrowDown, null, tint = p.accent, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(10.dp))
                     Column(Modifier.weight(1f)) {
                         Text(file.name, color = p.text, fontSize = 13.sp)
@@ -1663,9 +1665,9 @@ private fun ColumnScope.ProfileScreen(
                         .horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    ThemeOption("System", "system", themeMode, onThemeMode, Icons.Filled.Settings)
-                    ThemeOption("Light", "light", themeMode, onThemeMode, Icons.Filled.LightMode)
-                    ThemeOption("Dark", "dark", themeMode, onThemeMode, Icons.Filled.DarkMode)
+                    ThemeOption("System", "system", themeMode, onThemeMode)
+                    ThemeOption("Light", "light", themeMode, onThemeMode)
+                    ThemeOption("Dark", "dark", themeMode, onThemeMode)
                 }
             }
         }
@@ -1685,13 +1687,6 @@ private fun ColumnScope.ProfileScreen(
                             Modifier.padding(horizontal = 15.dp, vertical = 9.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(
-                                Icons.Filled.Translate,
-                                null,
-                                tint = p.onAccent,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(Modifier.width(7.dp))
                             Text(
                                 language.label,
                                 color = p.onAccent,
@@ -1773,7 +1768,7 @@ private fun ColumnScope.ProfileScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.clickable { onOpenDownloads() }
                 ) {
-                    Icon(Icons.Filled.Download, null, tint = p.accent, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Filled.KeyboardArrowDown, null, tint = p.accent, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(9.dp))
                     Text(
                         "Open downloads",
@@ -1781,7 +1776,7 @@ private fun ColumnScope.ProfileScreen(
                         fontSize = 14.sp,
                         modifier = Modifier.weight(1f)
                     )
-                    Icon(Icons.Filled.ChevronRight, null, tint = p.softText, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Filled.KeyboardArrowRight, null, tint = p.softText, modifier = Modifier.size(20.dp))
                 }
             }
         }
@@ -1807,8 +1802,7 @@ private fun ThemeOption(
     label: String,
     value: String,
     selected: String,
-    onSelect: (String) -> Unit,
-    icon: ImageVector
+    onSelect: (String) -> Unit
 ) {
     val p = LocalPalette.current
     val active = value == selected
@@ -1822,8 +1816,6 @@ private fun ThemeOption(
             Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(icon, null, tint = if (active) p.accent else p.softText, modifier = Modifier.size(17.dp))
-            Spacer(Modifier.width(7.dp))
             Text(
                 label,
                 fontSize = 13.sp,
@@ -1866,9 +1858,9 @@ private fun BottomBar(route: Route, onTab: (String) -> Unit) {
     NavigationBar(containerColor = p.navBg) {
         listOf(
             "Home" to Icons.Filled.Home,
-            "Catalogue" to Icons.Filled.MenuBook,
-            "AI" to Icons.Filled.AutoAwesome,
-            "Saved" to Icons.Filled.Bookmarks,
+            "Catalogue" to Icons.Filled.List,
+            "AI" to Icons.Filled.Star,
+            "Saved" to Icons.Filled.Favorite,
             "Profile" to Icons.Filled.Person
         ).forEach { (name, icon) ->
             NavigationBarItem(
