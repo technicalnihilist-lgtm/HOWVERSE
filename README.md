@@ -45,6 +45,16 @@ Debug-signed, so enable "Install unknown apps" to install it. Not Play Store rea
 
 ---
 
+## Demo
+
+<img src="https://github.com/technicalnihilist-lgtm/HOWVERSE/releases/download/v1.1.0/HOWVERSE-demo.gif" alt="HOWVERSE demo — home, AI chat, light mode and settings" width="360">
+
+A 12-second walkthrough: dark home, tap a category, the AI answer arrives, then the theme
+switches to light. Full quality: [HOWVERSE-demo.mp4](https://github.com/technicalnihilist-lgtm/HOWVERSE/releases/download/v1.1.0/HOWVERSE-demo.mp4) — 1080 × 2400, H.264, 12 s.
+The clip is built from the app's real Compose UI — no mock-ups.
+
+---
+
 ## Screenshots
 
 | Home (dark) | AI chat (dark) |
@@ -63,6 +73,18 @@ Debug-signed, so enable "Install unknown apps" to install it. Not Play Store rea
 | Theme picker and AI backend URL | Lessons saved on the device |
 
 Full-resolution PNGs (1080 × 2400) and the 512 × 512 icon are in [`screenshots/`](screenshots).
+
+---
+
+## Example images
+
+| Play Store feature graphic (1024 × 500) | Dark and light, side by side |
+|:---:|:---:|
+| <img src="screenshots/feature-graphic.png" width="420"> | <img src="screenshots/dark-and-light.png" width="380"> |
+
+Both are ready to upload: the feature graphic fits the Play Console listing requirement, and
+the comparison image works as a first README or store screenshot. The 512 × 512 app icon is
+at [`screenshots/icon-512.png`](screenshots/icon-512.png).
 
 ---
 
@@ -139,7 +161,8 @@ HOWVERSE/
 │           ├── values/                    # colours and theme
 │           └── xml/network_security_config.xml
 ├── backend/                               # Express API that talks to the AI provider
-├── screenshots/                           # 1080 × 2400 screenshots, banner, 512 icon
+├── screenshots/                           # 1080 × 2400 screenshots, banner, icon, feature graphic
+│                                          # (demo video + GIF live on the Releases page)
 ├── gradle/wrapper/                        # Gradle wrapper 8.11.1
 ├── build.gradle.kts · settings.gradle.kts · gradle.properties
 ├── gradlew · gradlew.bat
