@@ -39,8 +39,6 @@ jobs:
           SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
           echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
           echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
-          echo "sdk at $SDK"
-          ls "$SDK" || true
           yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$SDK" --licenses > /dev/null 2>&1 || true
           "$SDK/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$SDK" "platforms;android-35" "build-tools;35.0.0" > /dev/null 2>&1 || true
           ls "$SDK/platforms" "$SDK/build-tools" || true
@@ -61,7 +59,20 @@ jobs:
           path: out/HOWVERSE-2.1-debug.apk
           if-no-files-found: error
 
+      - name: Check whether v2.1.0 already exists
+        id: rel
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view v2.1.0 > /dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "release v2.1.0 already exists - artifact only"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Publish release
+        if: steps.rel.outputs.exists == 'false'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v2.1.0
