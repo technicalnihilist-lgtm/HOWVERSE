@@ -1,0 +1,284 @@
+--- a/app/src/main/java/com/howverse/app/ui/HowverseApp.kt
++++ b/app/src/main/java/com/howverse/app/ui/HowverseApp.kt
+@@ -4,6 +4,7 @@
+ import android.content.Context
+ import android.content.ContextWrapper
+ import android.content.Intent
++import android.net.Uri
+ import android.graphics.BitmapFactory
+ import android.speech.tts.TextToSpeech
+ import android.widget.Toast
+@@ -72,6 +73,7 @@
+ import androidx.compose.runtime.LaunchedEffect
+ import androidx.compose.runtime.getValue
+ import androidx.compose.runtime.mutableStateListOf
++import androidx.compose.runtime.mutableStateMapOf
+ import androidx.compose.runtime.mutableStateOf
+ import androidx.compose.runtime.remember
+ import androidx.compose.runtime.rememberCoroutineScope
+@@ -94,9 +96,12 @@
+ import com.howverse.app.data.Catalogue
+ import com.howverse.app.data.ChatMessage
+ import com.howverse.app.data.Downloader
++import com.howverse.app.data.ImageCredits
+ import com.howverse.app.data.Language
+ import com.howverse.app.data.Languages
+ import com.howverse.app.data.LessonEngine
++import com.howverse.app.data.LiveMedia
++import com.howverse.app.data.LivePhoto
+ import com.howverse.app.data.Prefs
+ import com.howverse.app.data.Role
+ import com.howverse.app.data.SavedLesson
+@@ -145,12 +150,19 @@
+     return null
+ }
+ 
+-private fun openVideos(context: Context, query: String) {
++private fun openVideos(context: Context, query: String, sortByDate: Boolean = false) {
+     context.startActivity(
+-        Intent(context, VideoActivity::class.java).putExtra(VideoActivity.EXTRA_QUERY, query)
++        Intent(context, VideoActivity::class.java)
++            .putExtra(VideoActivity.EXTRA_QUERY, query)
++            .putExtra(VideoActivity.EXTRA_SORT_BY_DATE, sortByDate)
+     )
+ }
+ 
++private fun openUrl(context: Context, url: String) {
++    if (url.isBlank()) return
++    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
++}
++
+ @Composable
+ fun HowverseApp(prefs: Prefs) {
+     val systemDark = isSystemInDarkTheme()
+@@ -959,7 +971,42 @@
+     onDownload: () -> Unit
+ ) {
+     val p = LocalPalette.current
+-    val bitmap = sectionArt(section.art)
++    val context = LocalContext.current
++    val embedded = sectionArt(section.art)
++
++    // Live content: ask Wikimedia Commons for current free-licensed photos of this section.
++    var photos by remember(section.id) { mutableStateOf<List<LivePhoto>>(emptyList()) }
++    var heroBitmap by remember(section.id) { mutableStateOf<ImageBitmap?>(null) }
++    var liveNote by remember(section.id) {
++        mutableStateOf("Looking for fresh photos on Wikimedia Commons…")
++    }
++    val stripBitmaps = remember(section.id) { mutableStateMapOf<String, ImageBitmap>() }
++
++    LaunchedEffect(section.id) {
++        val found = runCatching { LiveMedia.photos(section.id, section.title) }.getOrElse { emptyList() }
++        photos = found
++        if (found.isEmpty()) {
++            liveNote = "No live photos right now — the photo embedded in the app stays."
++        } else {
++            liveNote = ""
++            heroBitmap = runCatching { LiveMedia.bitmap(found.first().thumbUrl) }.getOrNull()
++        }
++    }
++
++    LaunchedEffect(photos) {
++        photos.drop(1).take(6).forEach { photo ->
++            if (!stripBitmaps.containsKey(photo.thumbUrl)) {
++                runCatching { LiveMedia.bitmap(photo.thumbUrl) }
++                    .getOrNull()
++                    ?.let { stripBitmaps[photo.thumbUrl] = it }
++            }
++        }
++    }
++
++    val hero = heroBitmap ?: embedded
++    val credit = ImageCredits.bySection(section.id)
++    val live = photos.firstOrNull()
++
+     LazyColumn(
+         modifier = Modifier
+             .weight(1f)
+@@ -969,9 +1016,9 @@
+     ) {
+         item {
+             Surface(shape = RoundedCornerShape(20.dp), color = p.panel) {
+-                if (bitmap != null) {
++                if (hero != null) {
+                     Image(
+-                        bitmap = bitmap,
++                        bitmap = hero,
+                         contentDescription = section.title,
+                         contentScale = ContentScale.Crop,
+                         modifier = Modifier
+@@ -996,6 +1043,23 @@
+                 color = p.accent,
+                 fontSize = 12.sp
+             )
++            Spacer(Modifier.height(6.dp))
++            when {
++                live != null -> Text(
++                    "Live photo: ${live.title} · ${live.author} · ${live.license} · Wikimedia Commons",
++                    color = p.softText,
++                    fontSize = 10.sp,
++                    lineHeight = 14.sp,
++                    modifier = Modifier.clickable { openUrl(context, live.pageUrl) }
++                )
++                credit != null -> Text(
++                    "Photo: ${credit.title} · ${credit.author} · ${credit.license} · Wikimedia Commons",
++                    color = p.softText,
++                    fontSize = 10.sp,
++                    lineHeight = 14.sp,
++                    modifier = Modifier.clickable { openUrl(context, credit.pageUrl) }
++                )
++            }
+         }
+         item {
+             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+@@ -1012,6 +1076,14 @@
+                     onClick = { onVideo(section.title) }
+                 )
+                 SmallAction(
++                    label = "Latest",
++                    icon = Icons.Filled.Search,
++                    filled = false,
++                    onClick = {
++                        openVideos(context, section.title, sortByDate = true)
++                    }
++                )
++                SmallAction(
+                     label = "Download",
+                     icon = Icons.Filled.KeyboardArrowDown,
+                     filled = false,
+@@ -1020,6 +1092,62 @@
+             }
+         }
+         item {
++            if (liveNote.isNotBlank()) {
++                Text(liveNote, color = p.softText, fontSize = 11.sp, lineHeight = 15.sp)
++            }
++            if (photos.size > 1) {
++                Row(verticalAlignment = Alignment.CenterVertically) {
++                    Text(
++                        "Fresh photos",
++                        fontSize = 16.sp,
++                        fontWeight = FontWeight.Bold,
++                        color = p.text,
++                        modifier = Modifier.weight(1f)
++                    )
++                    Text("LIVE", color = p.good, fontSize = 10.sp, fontWeight = FontWeight.Bold)
++                }
++                Spacer(Modifier.height(8.dp))
++                Row(
++                    Modifier.horizontalScroll(rememberScrollState()),
++                    horizontalArrangement = Arrangement.spacedBy(8.dp)
++                ) {
++                    photos.drop(1).take(6).forEach { photo ->
++                        val thumb = stripBitmaps[photo.thumbUrl]
++                        Surface(
++                            shape = RoundedCornerShape(12.dp),
++                            color = p.glass,
++                            border = BorderStroke(1.dp, p.cardBorder),
++                            modifier = Modifier.clickable { openUrl(context, photo.pageUrl) }
++                        ) {
++                            if (thumb != null) {
++                                Image(
++                                    bitmap = thumb,
++                                    contentDescription = photo.title,
++                                    contentScale = ContentScale.Crop,
++                                    modifier = Modifier
++                                        .width(112.dp)
++                                        .height(66.dp)
++                                )
++                            } else {
++                                Box(
++                                    Modifier
++                                        .width(112.dp)
++                                        .height(66.dp)
++                                )
++                            }
++                        }
++                    }
++                }
++                Spacer(Modifier.height(4.dp))
++                Text(
++                    "Free-licensed photos pulled from Wikimedia Commons just now — tap one to open its source page.",
++                    color = p.softText,
++                    fontSize = 10.sp,
++                    lineHeight = 14.sp
++                )
++            }
++        }
++        item {
+             Text("Learning modes", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = p.text)
+             Spacer(Modifier.height(6.dp))
+             Row(
+@@ -1602,9 +1730,11 @@
+     onTestVoice: () -> Unit
+ ) {
+     val p = LocalPalette.current
++    val context = LocalContext.current
+     var draft by remember { mutableStateOf(backendUrl) }
+     var savedFlag by remember { mutableStateOf(false) }
+     var showLanguages by remember { mutableStateOf(false) }
++    var showCredits by remember { mutableStateOf(false) }
+ 
+     if (showLanguages) {
+         AlertDialog(
+@@ -1780,6 +1910,60 @@
+                 }
+             }
+         }
++        item {
++            SettingsCard(
++                title = "Image credits",
++                subtitle = "All ${ImageCredits.all.size} section photos come from Wikimedia Commons " +
++                    "under free licences (CC0, public domain, CC BY, CC BY-SA)."
++            ) {
++                Row(
++                    verticalAlignment = Alignment.CenterVertically,
++                    modifier = Modifier.clickable { showCredits = !showCredits }
++                ) {
++                    Icon(Icons.Filled.Star, null, tint = p.accent, modifier = Modifier.size(18.dp))
++                    Spacer(Modifier.width(9.dp))
++                    Text(
++                        if (showCredits) "Hide credits" else "Show credits and licences",
++                        color = p.text,
++                        fontSize = 14.sp,
++                        modifier = Modifier.weight(1f)
++                    )
++                    Icon(
++                        if (showCredits) Icons.Filled.KeyboardArrowDown else Icons.Filled.KeyboardArrowRight,
++                        null,
++                        tint = p.softText,
++                        modifier = Modifier.size(20.dp)
++                    )
++                }
++                Spacer(Modifier.height(6.dp))
++                Text(ImageCredits.summary(), color = p.softText, fontSize = 11.sp, lineHeight = 15.sp)
++                if (showCredits) {
++                    Spacer(Modifier.height(8.dp))
++                    ImageCredits.all.forEach { credit ->
++                        Column(
++                            Modifier
++                                .fillMaxWidth()
++                                .clickable { openUrl(context, credit.pageUrl) }
++                                .padding(vertical = 7.dp)
++                        ) {
++                            Text(
++                                credit.section,
++                                color = p.accent,
++                                fontSize = 10.sp,
++                                fontWeight = FontWeight.SemiBold
++                            )
++                            Text(credit.title, color = p.text, fontSize = 12.sp, lineHeight = 16.sp)
++                            Text(
++                                "${credit.author} · ${credit.license} · Wikimedia Commons",
++                                color = p.softText,
++                                fontSize = 10.sp,
++                                lineHeight = 14.sp
++                            )
++                        }
++                    }
++                }
++            }
++        }
+         item {
+             SettingsCard(title = "About", subtitle = "HOWVERSE 2.0") {
+                 Text(
