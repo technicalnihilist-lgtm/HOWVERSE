@@ -1,0 +1,94 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'app/**'
+      - 'patches/**'
+      - '.github/workflows/android.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Apply pending source patches
+        run: |
+          if [ -f patches/live-section.patch ] && ! grep -q LiveMedia app/src/main/java/com/howverse/app/ui/HowverseApp.kt; then
+            git apply patches/live-section.patch
+            echo "applied patches/live-section.patch"
+          else
+            echo "nothing to apply"
+          fi
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Build debug APK
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Collect APK
+        run: |
+          mkdir -p out
+          cp app/build/outputs/apk/debug/app-debug.apk out/HOWVERSE-2.1-debug.apk
+          ls -la out
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: HOWVERSE-debug-apk
+          path: out/HOWVERSE-2.1-debug.apk
+          if-no-files-found: error
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v2.1.0
+          name: HOWVERSE 2.1 — live Wikimedia photos, image credits, latest videos
+          body: |
+            ## HOWVERSE 2.1
+
+            ### New in this build
+            - **Live photos per section** — opening a section asks the Wikimedia Commons API for current
+              free-licensed photographs of that topic, so new uploads appear without a new build.
+              A "Fresh photos · LIVE" strip shows more, each tappable to its Commons source page.
+            - **Photo credits everywhere** — a credit line under every section photo (title, author,
+              licence, source) and a full **Profile → Image credits** list covering all 27 section photos.
+            - **Latest videos** — the new "Latest" button opens YouTube sorted by upload date, so recent
+              videos come first.
+
+            ### APK details
+            | | |
+            |---|---|
+            | File | `HOWVERSE-2.1-debug.apk` |
+            | Package | `com.howverse.app` |
+            | Version | 2.1 (versionCode 4) |
+            | Min Android | 8.0 (API 26) |
+            | Target | Android 15 (API 35) |
+            | Signing | Android debug key |
+
+            ### Notes
+            - Debug-signed: enable "Install unknown apps" to install. Updates over 2.0 (same package and key).
+            - Live photos are read-only calls to the public Commons API; nothing is uploaded.
+            - Offline? The embedded photo and the offline lesson library still work, and the app says so.
+
+            ### Build it yourself
+            ```bash
+            ./gradlew assembleDebug
+            ```
+          files: out/HOWVERSE-2.1-debug.apk
+          fail_on_unmatched_files: true
+          draft: false
