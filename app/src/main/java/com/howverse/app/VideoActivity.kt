@@ -23,6 +23,7 @@ class VideoActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val query = intent.getStringExtra(EXTRA_QUERY).orEmpty().ifBlank { "how to learn anything" }
+        val sortByDate = intent.getBooleanExtra(EXTRA_SORT_BY_DATE, false)
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -61,8 +62,9 @@ class VideoActivity : ComponentActivity() {
             webChromeClient = WebChromeClient()
             setBackgroundColor(Color.parseColor("#080B13"))
         }
+        // sp=CAI%3D asks YouTube to sort results by upload date, so the newest videos come first.
         val url = "https://m.youtube.com/results?search_query=" +
-            Uri.encode("$query tutorial step by step")
+            Uri.encode("$query tutorial step by step") + (if (sortByDate) "&sp=CAI%3D" else "")
         web.loadUrl(url)
 
         root.addView(bar)
@@ -72,5 +74,6 @@ class VideoActivity : ComponentActivity() {
 
     companion object {
         const val EXTRA_QUERY = "query"
+        const val EXTRA_SORT_BY_DATE = "sortByDate"
     }
 }
