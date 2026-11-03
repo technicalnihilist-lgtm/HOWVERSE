@@ -28,18 +28,17 @@ jobs:
       - name: Apply pending source patches
         run: |
           UI=app/src/main/java/com/howverse/app/ui/HowverseApp.kt
-          if [ -f patches/live-section.patch ] && ! grep -q LiveMedia "$UI"; then
-            git apply patches/live-section.patch
-            echo "applied patches/live-section.patch"
-          fi
-          if [ -f patches/live-strip.patch ] && ! grep -q stripPhotos "$UI"; then
-            git apply patches/live-strip.patch
-            echo "applied patches/live-strip.patch"
-          fi
-          if [ -f patches/home-live.patch ] && ! grep -q liveThumb "$UI"; then
-            git apply patches/home-live.patch
-            echo "applied patches/home-live.patch"
-          fi
+          apply() {
+            if [ -f "$1" ] && ! grep -q "$2" "$3"; then
+              git apply "$1"
+              echo "applied $1"
+            fi
+          }
+          apply patches/live-section.patch LiveMedia "$UI"
+          apply patches/live-strip.patch stripPhotos "$UI"
+          apply patches/home-live.patch liveThumb "$UI"
+          apply patches/voice.patch isNetworkConnectionRequired "$UI"
+          apply patches/offline-lessons.patch domainFor app/src/main/java/com/howverse/app/data/OfflineBrain.kt
 
       - name: Configure Android SDK
         run: |
@@ -56,22 +55,22 @@ jobs:
       - name: Collect APK
         run: |
           mkdir -p out
-          cp app/build/outputs/apk/debug/app-debug.apk out/HOWVERSE-2.3-debug.apk
+          cp app/build/outputs/apk/debug/app-debug.apk out/HOWVERSE-2.4-debug.apk
           ls -la out
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: HOWVERSE-debug-apk
-          path: out/HOWVERSE-2.3-debug.apk
+          path: out/HOWVERSE-2.4-debug.apk
           if-no-files-found: error
 
-      - name: Check whether v2.3.0 already exists
+      - name: Check whether v2.4.0 already exists
         id: rel
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if gh release view v2.3.0 > /dev/null 2>&1; then
+          if gh release view v2.4.0 > /dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
@@ -81,34 +80,45 @@ jobs:
         if: steps.rel.outputs.exists == 'false'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v2.3.0
-          name: HOWVERSE 2.3 — photos on the home grid
+          tag_name: v2.4.0
+          name: HOWVERSE 2.4 — natural voices, real lesson plans
           body: |
-            ## HOWVERSE 2.3
+            ## HOWVERSE 2.4
 
-            ### New
-            - **Home tiles use the real photos too.** The A–Z grid now asks Wikimedia Commons for a
-              free-licensed photo of each section and shows it in place of the bundled artwork. Tiles
-              load lazily — only the sections you can see are fetched — and fall back to the bundled
-              artwork if a photo cannot be downloaded.
-            - **No more wrapped buttons.** The action rows on the home card and the section page scroll
-              sideways instead of squeezing "Download" onto three lines.
+            ### Read-aloud that sounds like a person
+            - The app now picks the **best voice the device has** for your language instead of whatever
+              default it was handed: it prefers Google's network (natural) voices, then the highest
+              quality tier, and avoids the compact ones.
+            - Speech runs through **network synthesis** with tuned rate and pitch, so it sounds far less
+              robotic than the offline engine.
+            - If a language has no voice installed, the app says so and opens the Android voice
+              installer instead of staying silent.
+
+            ### Lessons that teach, not just talk
+            - Offline answers are now **section-aware**: a cooking topic gets mise en place, taste-as-you-go
+              and heat control; a coding topic gets read-the-error, smallest-useful-program and
+              predict-before-you-run; maths gets units, validity conditions and substitute-back checks.
+              Twelve sections have their own guidance, the rest use a sharper general plan.
+            - Every plan is now ten concrete steps: what it is, what you need first, five words to learn,
+              the first 30 minutes, one worked example, where people go wrong, how to check yourself,
+              a mistake list, teach-it-back, and a spaced review at 3 days / 2 weeks.
 
             ### Also in this line
-            - 2.2 fixed the 403 from Wikimedia by sending a proper user agent on image downloads.
-            - 2.1 added live section photos, photo credits and the latest-videos sort.
+            - 2.3 — real photos on the home A–Z grid, action rows scroll instead of wrapping.
+            - 2.2 — fixed the Wikimedia 403 by sending a proper user agent.
+            - 2.1 — live section photos, image credits, latest-videos sort.
 
             ### APK details
             | | |
             |---|---|
-            | File | `HOWVERSE-2.3-debug.apk` |
+            | File | `HOWVERSE-2.4-debug.apk` |
             | Package | `com.howverse.app` |
-            | Version | 2.3 (versionCode 6) |
+            | Version | 2.4 (versionCode 7) |
             | Min Android | 8.0 (API 26) |
             | Target | Android 15 (API 35) |
             | Signing | Android debug key |
 
-            Debug-signed, updates over 2.0 / 2.1 / 2.2 (same package and key).
-          files: out/HOWVERSE-2.3-debug.apk
+            Debug-signed, updates over 2.0 – 2.3 (same package and key).
+          files: out/HOWVERSE-2.4-debug.apk
           fail_on_unmatched_files: true
           draft: false

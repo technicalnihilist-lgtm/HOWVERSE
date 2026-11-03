@@ -1,0 +1,48 @@
+--- a/app/src/main/java/com/howverse/app/ui/HowverseApp.kt
++++ b/app/src/main/java/com/howverse/app/ui/HowverseApp.kt
+@@ -6,7 +6,9 @@
+ import android.content.Intent
+ import android.net.Uri
+ import android.graphics.BitmapFactory
++import android.os.Bundle
+ import android.speech.tts.TextToSpeech
++import android.speech.tts.Voice
+ import android.widget.Toast
+ import androidx.compose.foundation.BorderStroke
+ import androidx.compose.foundation.Image
+@@ -244,8 +246,33 @@
+ 
+     fun speak(text: String) {
+         val engine = tts ?: return
+-        engine.setLanguage(Locale.forLanguageTag(language.tag))
+-        engine.speak(text.take(3500), TextToSpeech.QUEUE_FLUSH, null, "howverse")
++        val locale = Locale.forLanguageTag(language.tag)
++        val status = engine.setLanguage(locale)
++        if (status == TextToSpeech.LANG_MISSING_DATA || status == TextToSpeech.LANG_NOT_SUPPORTED) {
++            // Better to send the learner to the voice installer than to stay silent.
++            runCatching { context.startActivity(Intent(TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA)) }
++            toast("No voice is installed for ${language.label}. Install voice data in Text-to-speech settings, then try again.")
++            return
++        }
++
++        // Prefer a high-quality network voice: on Google TTS those are the natural-sounding ones.
++        val best = runCatching {
++            engine.voices
++                ?.filter { it.locale.language.equals(locale.language, ignoreCase = true) }
++                ?.sortedWith(
++                    compareByDescending<Voice> { it.isNetworkConnectionRequired }
++                        .thenByDescending { it.quality }
++                        .thenByDescending { !it.name.contains("compact", ignoreCase = true) }
++                )
++                ?.firstOrNull()
++        }.getOrNull()
++        if (best != null) runCatching { engine.voice = best }
++
++        engine.setSpeechRate(0.97f)
++        engine.setPitch(1.02f)
++        val params = Bundle()
++        params.putString(TextToSpeech.Engine.KEY_FEATURE_NETWORK_SYNTHESIS, "true")
++        engine.speak(text.take(3500), TextToSpeech.QUEUE_FLUSH, params, "howverse")
+     }
+ 
+     fun toast(message: String) {

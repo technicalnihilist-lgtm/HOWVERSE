@@ -1,0 +1,139 @@
+--- a/app/src/main/java/com/howverse/app/data/OfflineBrain.kt
++++ b/app/src/main/java/com/howverse/app/data/OfflineBrain.kt
+@@ -222,22 +222,125 @@
+         )
+     )
+ 
++    /**
++     * Section-aware guidance, so an offline lesson for "Biryani" reads like cooking and an
++     * offline lesson for "Python" reads like programming instead of one shared template.
++     */
++    private data class Domain(
++        val first: String,
++        val practice: String,
++        val mistake: String,
++        val check: String
++    )
++
++    private val domains: Map<String, Domain> = mapOf(
++        "Art & Design" to Domain(
++            "Copy one real piece you admire before inventing anything: pick a small object and draw it three times.",
++            "Twenty focused minutes on one exercise — a value scale, five colour swatches, or three thumbnail sketches — not a whole project.",
++            "Chasing style before fundamentals. Proportion, value and edge control decide whether the work reads correctly.",
++            "Squint at the work or flip it in a mirror; the errors you cannot see straight on show up immediately."
++        ),
++        "Business & Management" to Domain(
++            "Name one real customer and one problem they already pay to solve.",
++            "Write the offer in three sentences and show it to five people; count how many ask a follow-up question.",
++            "Confusing interest with demand. Only money or a signed commitment proves demand.",
++            "If ten strangers cannot repeat your offer back to you correctly, the offer is the problem, not the market."
++        ),
++        "Computer & Coding" to Domain(
++            "Get one language installed and running a hello-world you typed yourself, not one you pasted.",
++            "Build the smallest useful program that touches real data — a bill splitter, a CSV cleaner, a habit counter.",
++            "Copying code without reading the error message. Errors name the file, the line and the expectation.",
++            "Delete a line and predict what breaks before you run it. If you cannot predict it, you do not own that code yet."
++        ),
++        "Digital Technology" to Domain(
++            "Draw the path a request takes — device, router, server, database — before touching settings.",
++            "Change one setting at a time and record what changed; keep a small log with dates.",
++            "Changing several things at once, then not knowing which one fixed it.",
++            "Explain the fix to someone else in plain words without using the word 'somehow'."
++        ),
++        "Engineering" to Domain(
++            "Write down the forces, materials and limits before designing anything: load, heat, wear, tolerance.",
++            "Measure something real with a caliper or multimeter and compare it with the datasheet.",
++            "Skipping units. Most engineering mistakes are millimetres against centimetres, or Nm against N.",
++            "Recalculate the result a second way; if both routes agree, the number is probably right."
++        ),
++        "Food & Cooking" to Domain(
++            "Read the whole recipe once and set out every ingredient and tool before the heat goes on.",
++            "Cook one component properly — the rice, the tadka, the sear — instead of a full menu.",
++            "Too much heat and too little salt early. Both are hard to undo.",
++            "Taste at every stage, not just at the end; a dish you can no longer correct has already failed."
++        ),
++        "Languages & Linguistics" to Domain(
++            "Learn ten high-frequency phrases you will actually say this week, not the alphabet.",
++            "Fifteen minutes of speaking aloud daily beats an hour of reading once a week.",
++            "Silent study. If your mouth has not practised it, you cannot produce it under pressure.",
++            "Record yourself for 30 seconds and listen back a week later — the improvement you hear is real progress."
++        ),
++        "Mathematics" to Domain(
++            "Write down what is known, what is asked, and the one relationship that connects them.",
++            "Solve five short problems by hand before using a calculator or a solver.",
++            "Memorising the formula without the conditions where it is valid.",
++            "Substitute the answer back into the original problem; it must hold, not just look plausible."
++        ),
++        "Physics & Science" to Domain(
++            "State the quantity, its unit and what you expect to happen before you measure.",
++            "Measure one thing three times and look at the spread; the spread is information.",
++            "Trusting a single reading. Repeat, then average.",
++            "Ask whether the result is physically sensible — an order of magnitude that surprises you is a clue."
++        ),
++        "Skills & Self Development" to Domain(
++            "Pick one behaviour you can start today and one you can measure weekly.",
++            "Make the first version so small it feels almost silly: two minutes, one page, one rep.",
++            "Relying on motivation. Change the environment so the right action is the easy one.",
++            "Count it for seven days. If you cannot count it, you cannot improve it."
++        ),
++        "Yoga, Wellness & Sports" to Domain(
++            "Learn the safe setup first — alignment, breathing, or the warm-up — before intensity.",
++            "Fifteen controlled minutes with attention on breath and form beats an hour of distracted effort.",
++            "Pushing into pain to look advanced. Discomfort is fine; sharp pain is information to stop.",
++            "Notice the next day: good practice leaves you tired and mobile, not injured."
++        ),
++        "Nature & Environment" to Domain(
++            "Pick one local system — a park, a river, a terrace garden — and observe it for a week.",
++            "Keep a simple log: date, weather, what you saw, what changed.",
++            "Studying only from screens. Field observation corrects most textbook impressions.",
++            "Can you explain why that species, soil or weather pattern is there, not just that it is there?"
++        )
++    )
++
++    private fun domainFor(category: String): Domain? = domains.entries
++        .firstOrNull { (key, _) -> category.contains(key, ignoreCase = true) || key.contains(category, ignoreCase = true) }
++        ?.value
++
+     private fun generic(question: String, category: String): String {
+         val topic = question.trim().ifBlank { category }
+-        val cat = if (category.isBlank() || category == "Everything") "this subject" else category.lowercase()
++        val cat = if (category.isBlank() || category == "Everything") "this subject" else category
++        val d = domainFor(cat)
++
++        val first = d?.first
++            ?: "Write the one-sentence definition from memory, then check it against a real source — the gap is your first task."
++        val practice = d?.practice
++            ?: "Do the smallest real thing today: measure it, draw it, build it, or explain it to someone in five sentences."
++        val mistake = d?.mistake
++            ?: "Collecting resources instead of doing the work. Notes are not practice."
++        val check = d?.check
++            ?: "Teach it back to someone in five sentences without looking. Every hesitation marks what to revisit."
++
+         return """
+-A structured way to learn "$topic".
++$topic — a working plan you can start now.
+ 
+-1. Define it in one sentence. If you cannot, you have found your first task: read a short overview and write the definition in your own words.
+-2. Break it into 3–5 parts. Almost every skill or system is a small set of pieces that interact — list them before you study any of them in depth.
+-3. Learn the vocabulary. Note every unfamiliar term you meet and look it up once; most confusion is missing words, not missing intelligence.
+-4. Find the smallest real practice. Not a course — one small thing you can do today that uses the idea (measure it, draw it, build it, explain it to someone).
+-5. Study one worked example end to end, then repeat it from memory without looking. The gap between those two attempts is exactly what you still need to learn.
+-6. Collect your mistakes in a list. Mistakes are the syllabus; repeating a mistake means the lesson has not landed yet.
+-7. Teach it back. Explaining "$topic" in five sentences to a friend exposes every fuzzy part.
+-8. Set a review point — revisit in three days and again in two weeks.
++1. Say what it is. One sentence, in your own words, before you read anything else.
++2. What you need first: $first
++3. Learn five words. Write down the five terms this field uses constantly and define each in a line.
++4. First 30 minutes: $practice
++5. One worked example. Follow a real example end to end, then repeat it from memory with the page closed.
++6. Where people go wrong: $mistake
++7. Check yourself: $check
++8. Keep a mistake list. Every entry is a lesson you have already paid for — reread it before the next attempt.
++9. Teach it back out loud. Explaining "$topic" in five sentences exposes every fuzzy part.
++10. Review in 3 days, then in 2 weeks. Spaced repetition is the difference between recognising and knowing.
+ 
+-Related areas worth exploring next: $cat fundamentals, the tools people in this field actually use, and one real case study you can take apart.
++Next, in $cat: the tools people in this field actually use, one real case study you can take apart, and one small project you can finish this week.
+         """.trimIndent()
+     }
+ 
