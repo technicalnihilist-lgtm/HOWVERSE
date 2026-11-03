@@ -13,21 +13,39 @@ chat, in-app video browsing, downloadable lessons and light/dark themes.
 <img alt="Compose" src="https://img.shields.io/badge/Jetpack%20Compose-BOM%202024.12-4285F4?logo=jetpackcompose&logoColor=white">
 <img alt="Topics" src="https://img.shields.io/badge/topics-392-9DBBFF">
 <img alt="Languages" src="https://img.shields.io/badge/languages-47-9DBBFF">
-<img alt="Release" src="https://img.shields.io/badge/release-v2.0.0-9DBBFF">
+<img alt="Release" src="https://img.shields.io/badge/release-v2.7.0-9DBBFF">
 </p>
 
 ---
 
 ## Download the APK
 
-**[⬇ Download HOWVERSE 2.0 (debug APK)](https://github.com/technicalnihilist-lgtm/HOWVERSE/releases/latest)**
+**[⬇ Download HOWVERSE 2.7 (debug APK)](https://github.com/technicalnihilist-lgtm/HOWVERSE/releases/latest)**
 
-Direct file: [`HOWVERSE-2.0-debug.apk`](https://github.com/technicalnihilist-lgtm/HOWVERSE/releases/download/v2.0.0/HOWVERSE-2.0-debug.apk) · 11 MB · Android 8.0 (API 26) and above
+Direct file: [`HOWVERSE-2.7-debug.apk`](https://github.com/technicalnihilist-lgtm/HOWVERSE/releases/download/v2.7.0/HOWVERSE-2.7-debug.apk) · 11 MB · Android 8.0 (API 26) and above
 
 Debug-signed — enable "Install unknown apps" to install. It updates over 1.0/1.1 (same
 package, same key). Not Play Store ready; see [Building from source](#building-from-source).
 
 ---
+
+## What's new in 2.7
+
+- **Real photos, live from Wikimedia Commons** - the home A-Z grid and every section page show a
+  current free-licensed photo of that topic, fetched at runtime (CC0 / public domain / CC BY /
+  CC BY-SA only). Tiles load lazily and fall back to the bundled artwork offline.
+- **Photos open inside the app** - tapping any photo opens an in-app viewer with its title,
+  author and licence. No browser, no Wikipedia tab; only the licence link leaves the app, as
+  CC BY requires.
+- **Voices that sound like a person** - the app picks the best voice the device has for your
+  language, prefers Google network voices, and prompts to install voice data instead of going
+  silent.
+- **Lessons that teach** - offline answers are section-aware (cooking reads like cooking, coding
+  like coding) and follow ten concrete steps: what it is, prerequisites, five words, the first
+  30 minutes, a worked example, common mistakes, self-check, mistake list, teach-back, spaced
+  review.
+- **Latest videos, honestly sorted** - a Desktop / Mobile switch in the video screen; only the
+  desktop view honours YouTube upload-date filter, so Latest really is newest-first.
 
 ## What's new in 2.0
 
@@ -53,6 +71,12 @@ package, same key). Not Play Store ready; see [Building from source](#building-f
 ---
 
 ## Screenshots
+
+| Home - live photos (2.7) | Section - live photo and credit (2.7) |
+|:---:|:---:|
+| <img src="screenshots/screenshot-home-2.7.jpg" width="300"> | <img src="screenshots/screenshot-section-live-2.7.jpg" width="300"> |
+| Real Wikimedia Commons photos, loaded lazily, LIVE badge per tile | Photo credit under the hero, in-app viewer on tap |
+
 
 | Home — A–Z grid (dark) | Catalogue (dark) |
 |:---:|:---:|
