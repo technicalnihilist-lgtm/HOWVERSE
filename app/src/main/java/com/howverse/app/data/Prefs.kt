@@ -5,8 +5,8 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * Small persistent store: theme, teaching language, AI backend URL, pack URL and
- * saved lessons. Everything survives a restart.
+ * Small persistent store: theme, teaching language, AI backend URL, pack URL, the video mode
+ * and saved lessons. Everything survives a restart.
  */
 class Prefs(context: Context) {
 
@@ -27,6 +27,11 @@ class Prefs(context: Context) {
     var packUrl: String
         get() = sp.getString("pack_url", "") ?: ""
         set(value) = sp.edit().putString("pack_url", value.trim()).apply()
+
+    /** true = open YouTube in desktop mode (the only mode that sorts by upload date). */
+    var videoDesktop: Boolean
+        get() = sp.getBoolean("video_desktop", false)
+        set(value) = sp.edit().putBoolean("video_desktop", value).apply()
 
     fun loadSaved(): List<SavedLesson> {
         val raw = sp.getString("saved", "[]") ?: "[]"
@@ -49,7 +54,7 @@ class Prefs(context: Context) {
             arr.put(
                 JSONObject()
                     .put("id", it.id)
-                    .put("question", it.question)
+                    .put("q", it.question)
                     .put("a", it.answer)
                     .put("t", it.savedAt)
             )
