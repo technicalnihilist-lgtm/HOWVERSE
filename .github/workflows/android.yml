@@ -56,22 +56,22 @@ jobs:
       - name: Collect APK
         run: |
           mkdir -p out
-          cp app/build/outputs/apk/debug/app-debug.apk out/HOWVERSE-2.6-debug.apk
+          cp app/build/outputs/apk/debug/app-debug.apk out/HOWVERSE-2.7-debug.apk
           ls -la out
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: HOWVERSE-debug-apk
-          path: out/HOWVERSE-2.6-debug.apk
+          path: out/HOWVERSE-2.7-debug.apk
           if-no-files-found: error
 
-      - name: Check whether v2.6.0 already exists
+      - name: Check whether v2.7.0 already exists
         id: rel
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if gh release view v2.6.0 > /dev/null 2>&1; then
+          if gh release view v2.7.0 > /dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
@@ -81,37 +81,42 @@ jobs:
         if: steps.rel.outputs.exists == 'false'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v2.6.0
-          name: HOWVERSE 2.6 — Latest videos actually sorted by date
+          tag_name: v2.7.0
+          name: HOWVERSE 2.7 — desktop or mobile YouTube, your choice
           body: |
-            ## HOWVERSE 2.6
+            ## HOWVERSE 2.7
 
-            ### The "Latest" button now really lands on newest first
-            - The upload-date filter (`sp=CAI%3D`) was being **silently dropped**: the app opened
-              `m.youtube.com`, and the mobile site ignores that parameter — so you got ordinary
-              relevance order and it looked like nothing happened.
-            - The Latest button now opens the **desktop results page** (`www.youtube.com/results` with a
-              desktop user agent) where the sort filter is honoured, so the newest uploads come first.
-            - The header of that screen says **Latest · topic** so it is obvious which mode you are in.
-            - The plain **Videos** button is unchanged: mobile YouTube, relevance order, still inside the
-              app's own browser — Chrome never opens.
+            ### A mode switch in the video screen
+            The header now carries a **Desktop / Mobile** button, right next to Close:
+            - **Mobile** — m.youtube.com: lighter, faster, relevance order. The sort filter is ignored
+              by YouTube's mobile site.
+            - **Desktop** — www.youtube.com with a desktop user agent: heavier, but the only view where
+              the upload-date filter works, so "Latest" really is newest-first.
+
+            The button switches instantly, the page reloads in the chosen mode, and the choice is
+            **remembered** for next time (`howverse_prefs` → `video_desktop`).
+
+            Opening **Latest** starts in Desktop (otherwise the sort would be pointless); opening
+            **Videos** starts in whatever mode you last chose.
+
+            Playback stays inside the app in both modes — Chrome never opens.
 
             ### Carried over
-            - 2.5 — photos open in an in-app viewer instead of the browser.
-            - 2.4 — natural network voices and section-aware lesson plans.
-            - 2.3 — real photos on the home A–Z grid.
+            - 2.6 — Latest really sorts by date instead of being silently ignored.
+            - 2.5 — photos open in an in-app viewer.
+            - 2.4 — natural network voices, section-aware lesson plans.
 
             ### APK details
             | | |
             |---|---|
-            | File | `HOWVERSE-2.6-debug.apk` |
+            | File | `HOWVERSE-2.7-debug.apk` |
             | Package | `com.howverse.app` |
-            | Version | 2.6 (versionCode 9) |
+            | Version | 2.7 (versionCode 10) |
             | Min Android | 8.0 (API 26) |
             | Target | Android 15 (API 35) |
             | Signing | Android debug key |
 
-            Debug-signed, updates over 2.0 – 2.5 (same package and key).
-          files: out/HOWVERSE-2.6-debug.apk
+            Debug-signed, updates over 2.0 – 2.6 (same package and key).
+          files: out/HOWVERSE-2.7-debug.apk
           fail_on_unmatched_files: true
           draft: false
