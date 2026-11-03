@@ -15,7 +15,7 @@ import androidx.activity.ComponentActivity
 
 /**
  * In-app video browser: opens a YouTube search for the topic the user is learning.
- * Videos play in the YouTube app or player; nothing is bundled or scraped.
+ * Videos play in the YouTube player inside this activity; nothing is bundled or scraped.
  */
 class VideoActivity : ComponentActivity() {
 
@@ -36,7 +36,7 @@ class VideoActivity : ComponentActivity() {
             gravity = Gravity.CENTER_VERTICAL
         }
         val title = TextView(this).apply {
-            text = "Videos · $query"
+            text = (if (sortByDate) "Latest · " else "Videos · ") + query
             setTextColor(Color.parseColor("#F2F5FB"))
             textSize = 15f
             maxLines = 1
@@ -61,11 +61,18 @@ class VideoActivity : ComponentActivity() {
             webViewClient = WebViewClient()
             webChromeClient = WebChromeClient()
             setBackgroundColor(Color.parseColor("#080B13"))
+            if (sortByDate) {
+                // m.youtube.com silently drops the sort filter, so the upload-date view has to be
+                // requested from the desktop results page — which needs a desktop user agent.
+                settings.userAgentString = DESKTOP_USER_AGENT
+            }
         }
-        // sp=CAI%3D asks YouTube to sort results by upload date, so the newest videos come first.
-        val url = "https://m.youtube.com/results?search_query=" +
-            Uri.encode("$query tutorial step by step") + (if (sortByDate) "&sp=CAI%3D" else "")
-        web.loadUrl(url)
+
+        val host = if (sortByDate) "https://www.youtube.com/results?search_query="
+        else "https://m.youtube.com/results?search_query="
+        val search = Uri.encode("$query tutorial step by step")
+        val sort = if (sortByDate) "&sp=CAI%3D" else "" // sp=CAI%3D = sort by upload date
+        web.loadUrl(host + search + sort)
 
         root.addView(bar)
         root.addView(web, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
@@ -75,5 +82,9 @@ class VideoActivity : ComponentActivity() {
     companion object {
         const val EXTRA_QUERY = "query"
         const val EXTRA_SORT_BY_DATE = "sortByDate"
+
+        private const val DESKTOP_USER_AGENT =
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) " +
+                "Chrome/121.0.0.0 Safari/537.36"
     }
 }
