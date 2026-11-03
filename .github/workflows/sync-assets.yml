@@ -1,0 +1,97 @@
+name: Sync assets from release
+
+# Pulls the screenshots and the single-file web build out of the v2.7.0 release assets and commits
+# them into the repository, so the README and web/ folder carry real files instead of links.
+# The GitHub App that manages this repo cannot push binaries or a 27 KB README through its file
+# API, but a workflow running with the repository's own token can.
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/sync-assets.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download release assets
+        run: |
+          base=https://github.com/technicalnihilist-lgtm/HOWVERSE/releases/download/v2.7.0
+          mkdir -p screenshots web
+          curl -fsSL -o screenshots/screenshot-home-2.7.jpg "$base/screenshot-home-2.7.jpg"
+          curl -fsSL -o screenshots/screenshot-section-live-2.7.jpg "$base/screenshot-section-live-2.7.jpg"
+          curl -fsSL -o web/index.html "$base/howverse-web-2.7.html"
+          ls -la screenshots web
+          file screenshots/*.jpg web/index.html
+
+      - name: Update README
+        run: |
+          python3 - <<'PY'
+          import pathlib
+
+          p = pathlib.Path('README.md')
+          s = p.read_text(encoding='utf-8')
+
+          s = s.replace('HOWVERSE 2.0 (debug APK)', 'HOWVERSE 2.7 (debug APK)')
+          s = s.replace('HOWVERSE-2.0-debug.apk', 'HOWVERSE-2.7-debug.apk')
+          s = s.replace('releases/download/v2.0.0/', 'releases/download/v2.7.0/')
+          s = s.replace('release-v2.0.0-9DBBFF', 'release-v2.7.0-9DBBFF')
+
+          shots = (
+              '| Home - live photos (2.7) | Section - live photo and credit (2.7) |\n'
+              '|:---:|:---:|\n'
+              '| <img src="screenshots/screenshot-home-2.7.jpg" width="300"> | <img src="screenshots/screenshot-section-live-2.7.jpg" width="300"> |\n'
+              '| Real Wikimedia Commons photos, loaded lazily, LIVE badge per tile | Photo credit under the hero, in-app viewer on tap |\n\n'
+          )
+          if 'screenshot-home-2.7.jpg' not in s and '## Screenshots' in s:
+              s = s.replace('## Screenshots\n', '## Screenshots\n\n' + shots, 1)
+              print('screenshot block added')
+          else:
+              print('screenshot block already present')
+
+          whatsnew = (
+              "## What's new in 2.7\n\n"
+              '- **Real photos, live from Wikimedia Commons** - the home A-Z grid and every section page show a\n'
+              '  current free-licensed photo of that topic, fetched at runtime (CC0 / public domain / CC BY /\n'
+              '  CC BY-SA only). Tiles load lazily and fall back to the bundled artwork offline.\n'
+              '- **Photos open inside the app** - tapping any photo opens an in-app viewer with its title,\n'
+              '  author and licence. No browser, no Wikipedia tab; only the licence link leaves the app, as\n'
+              '  CC BY requires.\n'
+              '- **Voices that sound like a person** - the app picks the best voice the device has for your\n'
+              '  language, prefers Google network voices, and prompts to install voice data instead of going\n'
+              '  silent.\n'
+              '- **Lessons that teach** - offline answers are section-aware (cooking reads like cooking, coding\n'
+              '  like coding) and follow ten concrete steps: what it is, prerequisites, five words, the first\n'
+              '  30 minutes, a worked example, common mistakes, self-check, mistake list, teach-back, spaced\n'
+              '  review.\n'
+              '- **Latest videos, honestly sorted** - a Desktop / Mobile switch in the video screen; only the\n'
+              '  desktop view honours YouTube upload-date filter, so Latest really is newest-first.\n\n'
+          )
+          if "## What's new in 2.7" not in s:
+              s = s.replace("## What's new in 2.0", whatsnew + "## What's new in 2.0", 1)
+              print('whats-new section added')
+          else:
+              print('whats-new section already present')
+
+          p.write_text(s, encoding='utf-8')
+          print('README written,', len(s), 'chars')
+          PY
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add screenshots web README.md
+          if git diff --cached --quiet; then
+            echo "nothing to commit"
+          else
+            git commit -m "docs: 2.7 screenshots, web build and README from the release assets"
+            git push
+          fi
