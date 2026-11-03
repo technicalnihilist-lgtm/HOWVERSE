@@ -1,0 +1,49 @@
+--- a/app/src/main/java/com/howverse/app/ui/HowverseApp.kt
++++ b/app/src/main/java/com/howverse/app/ui/HowverseApp.kt
+@@ -653,7 +653,10 @@
+                             )
+                         }
+                         Spacer(Modifier.height(14.dp))
+-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
++                        Row(
++                            Modifier.horizontalScroll(rememberScrollState()),
++                            horizontalArrangement = Arrangement.spacedBy(8.dp)
++                        ) {
+                             SmallAction(
+                                 label = "A–Z catalogue",
+                                 icon = Icons.Filled.List,
+@@ -784,7 +787,21 @@
+ @Composable
+ private fun RowScope.SectionTile(section: Section, onClick: () -> Unit) {
+     val p = LocalPalette.current
+-    val bitmap = sectionArt(section.art)
++    val bundled = sectionArt(section.art)
++    var liveThumb by remember(section.id) { mutableStateOf<ImageBitmap?>(null) }
++
++    // Tiles are composed lazily, so this only asks Commons for the sections on screen.
++    LaunchedEffect(section.id) {
++        if (liveThumb == null) {
++            val photo = runCatching { LiveMedia.strip(section.id, section.title) }
++                .getOrNull()
++                ?.firstOrNull()
++            if (photo != null) {
++                liveThumb = runCatching { LiveMedia.bitmap(photo.thumbUrl) }.getOrNull()
++            }
++        }
++    }
++    val bitmap = liveThumb ?: bundled
+     Surface(
+         modifier = Modifier
+             .weight(1f)
+@@ -1068,7 +1085,10 @@
+             }
+         }
+         item {
+-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
++            Row(
++                Modifier.horizontalScroll(rememberScrollState()),
++                horizontalArrangement = Arrangement.spacedBy(8.dp)
++            ) {
+                 SmallAction(
+                     label = "Ask AI",
+                     icon = Icons.Filled.Star,

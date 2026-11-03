@@ -36,6 +36,10 @@ jobs:
             git apply patches/live-strip.patch
             echo "applied patches/live-strip.patch"
           fi
+          if [ -f patches/home-live.patch ] && ! grep -q liveThumb "$UI"; then
+            git apply patches/home-live.patch
+            echo "applied patches/home-live.patch"
+          fi
 
       - name: Configure Android SDK
         run: |
@@ -52,22 +56,22 @@ jobs:
       - name: Collect APK
         run: |
           mkdir -p out
-          cp app/build/outputs/apk/debug/app-debug.apk out/HOWVERSE-2.2-debug.apk
+          cp app/build/outputs/apk/debug/app-debug.apk out/HOWVERSE-2.3-debug.apk
           ls -la out
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: HOWVERSE-debug-apk
-          path: out/HOWVERSE-2.2-debug.apk
+          path: out/HOWVERSE-2.3-debug.apk
           if-no-files-found: error
 
-      - name: Check whether v2.2.0 already exists
+      - name: Check whether v2.3.0 already exists
         id: rel
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if gh release view v2.2.0 > /dev/null 2>&1; then
+          if gh release view v2.3.0 > /dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
@@ -77,38 +81,34 @@ jobs:
         if: steps.rel.outputs.exists == 'false'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v2.2.0
-          name: HOWVERSE 2.2 — section photos fixed
+          tag_name: v2.3.0
+          name: HOWVERSE 2.3 — photos on the home grid
           body: |
-            ## HOWVERSE 2.2
+            ## HOWVERSE 2.3
 
-            Fixes the section photos not appearing in 2.1.
+            ### New
+            - **Home tiles use the real photos too.** The A–Z grid now asks Wikimedia Commons for a
+              free-licensed photo of each section and shows it in place of the bundled artwork. Tiles
+              load lazily — only the sections you can see are fetched — and fall back to the bundled
+              artwork if a photo cannot be downloaded.
+            - **No more wrapped buttons.** The action rows on the home card and the section page scroll
+              sideways instead of squeezing "Download" onto three lines.
 
-            ### What was wrong
-            Wikimedia answers **403 Forbidden** to any request that arrives with a generic client
-            user agent. The photo downloads in 2.1 carried no user agent of their own, so OkHttp sent
-            its default `okhttp/4.12.0` and every image was rejected — the app fell back to the
-            bundled artwork. The API call was unaffected, which is why photos were found but never
-            drawn.
-
-            ### What changed
-            - Every Commons request, API and image alike, now identifies the app explicitly.
-            - The "Fresh photos" strip asks for 330 px thumbnails instead of 960 px ones, so opening a
-              section uses roughly 250 KB of data instead of ~2 MB.
-            - If a live photo still cannot be downloaded, the section says so in plain words and keeps
-              the bundled photo — never a blank frame.
+            ### Also in this line
+            - 2.2 fixed the 403 from Wikimedia by sending a proper user agent on image downloads.
+            - 2.1 added live section photos, photo credits and the latest-videos sort.
 
             ### APK details
             | | |
             |---|---|
-            | File | `HOWVERSE-2.2-debug.apk` |
+            | File | `HOWVERSE-2.3-debug.apk` |
             | Package | `com.howverse.app` |
-            | Version | 2.2 (versionCode 5) |
+            | Version | 2.3 (versionCode 6) |
             | Min Android | 8.0 (API 26) |
             | Target | Android 15 (API 35) |
             | Signing | Android debug key |
 
-            Debug-signed, updates over 2.0 / 2.1 (same package and key).
-          files: out/HOWVERSE-2.2-debug.apk
+            Debug-signed, updates over 2.0 / 2.1 / 2.2 (same package and key).
+          files: out/HOWVERSE-2.3-debug.apk
           fail_on_unmatched_files: true
           draft: false
