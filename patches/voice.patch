@@ -10,7 +10,7 @@
  import android.widget.Toast
  import androidx.compose.foundation.BorderStroke
  import androidx.compose.foundation.Image
-@@ -244,8 +246,33 @@
+@@ -244,8 +246,36 @@
  
      fun speak(text: String) {
          val engine = tts ?: return
@@ -21,7 +21,11 @@
 +        if (status == TextToSpeech.LANG_MISSING_DATA || status == TextToSpeech.LANG_NOT_SUPPORTED) {
 +            // Better to send the learner to the voice installer than to stay silent.
 +            runCatching { context.startActivity(Intent(TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA)) }
-+            toast("No voice is installed for ${language.label}. Install voice data in Text-to-speech settings, then try again.")
++            Toast.makeText(
++                context,
++                "No voice is installed for ${language.label}. Install voice data in Text-to-speech settings, then try again.",
++                Toast.LENGTH_LONG
++            ).show()
 +            return
 +        }
 +
