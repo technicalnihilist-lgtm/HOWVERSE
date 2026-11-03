@@ -30,6 +30,13 @@ data class LivePhoto(
 
 object LiveMedia {
 
+    /**
+     * Wikimedia answers 403 to requests that arrive with a generic client user agent (OkHttp's
+     * default one, or none at all), so every request — API and image alike — identifies the app.
+     */
+    private const val USER_AGENT =
+        "HOWVERSE/2.2 (Android learning app; +https://github.com/technicalnihilist-lgtm/HOWVERSE)"
+
     private val client = OkHttpClient.Builder()
         .connectTimeout(12, TimeUnit.SECONDS)
         .readTimeout(25, TimeUnit.SECONDS)
@@ -72,19 +79,35 @@ object LiveMedia {
         "screenshot", "seal of", "plate"
     )
 
+    private const val HERO_WIDTH = 640
+    private const val STRIP_WIDTH = 320
+
     private val cache = HashMap<String, List<LivePhoto>>()
+    private val stripCache = HashMap<String, List<LivePhoto>>()
     private val bitmapCache = HashMap<String, ImageBitmap>()
 
     private val extensionRegex = Regex("\\.(jpg|jpeg|png|webp|tif|tiff)$", RegexOption.IGNORE_CASE)
 
     /** Fresh photos for a section. Returns an empty list when the network or the API fails. */
-    suspend fun photos(sectionId: String, sectionTitle: String): List<LivePhoto> {
-        cache[sectionId]?.let { return it }
+    suspend fun photos(sectionId: String, sectionTitle: String): List<LivePhoto> =
+        search(sectionId, sectionTitle, HERO_WIDTH, cache)
+
+    /** The same search at strip size, so the thumbnails stay light on mobile data. */
+    suspend fun strip(sectionId: String, sectionTitle: String): List<LivePhoto> =
+        search(sectionId, sectionTitle, STRIP_WIDTH, stripCache)
+
+    private suspend fun search(
+        sectionId: String,
+        sectionTitle: String,
+        width: Int,
+        store: HashMap<String, List<LivePhoto>>
+    ): List<LivePhoto> {
+        store[sectionId]?.let { return it }
         return withContext(Dispatchers.IO) {
             val query = queries[sectionId] ?: sectionTitle
             val request = Request.Builder()
-                .url(searchUrl(query))
-                .header("User-Agent", "HOWVERSE/2.0 (Android; educational)")
+                .url(searchUrl(query, width))
+                .header("User-Agent", USER_AGENT)
                 .build()
             val body = client.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) throw IllegalStateException("Commons HTTP ${response.code}")
@@ -122,7 +145,7 @@ object LiveMedia {
                 )
                 if (found.size >= 8) break
             }
-            if (found.isNotEmpty()) cache[sectionId] = found
+            if (found.isNotEmpty()) store[sectionId] = found
             found
         }
     }
@@ -132,7 +155,7 @@ object LiveMedia {
         bitmapCache[url]?.let { return it }
         return withContext(Dispatchers.IO) {
             val decoded = runCatching {
-                val request = Request.Builder().url(url).build()
+                val request = Request.Builder().url(url).header("User-Agent", USER_AGENT).build()
                 client.newCall(request).execute().use { response ->
                     if (!response.isSuccessful) return@use null
                     val bytes = response.body?.bytes() ?: return@use null
@@ -144,11 +167,11 @@ object LiveMedia {
         }
     }
 
-    private fun searchUrl(query: String): String {
+    private fun searchUrl(query: String, width: Int): String {
         val encoded = URLEncoder.encode("$query filetype:bitmap", "UTF-8")
         return "https://commons.wikimedia.org/w/api.php?action=query&format=json" +
             "&generator=search&gsrsearch=$encoded&gsrnamespace=6&gsrlimit=10" +
-            "&prop=imageinfo&iiprop=url|extmetadata|size&iiurlwidth=640"
+            "&prop=imageinfo&iiprop=url|extmetadata|size&iiurlwidth=$width"
     }
 
     private fun isFree(license: String): Boolean {
