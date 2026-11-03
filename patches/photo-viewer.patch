@@ -1,0 +1,150 @@
+--- a/app/src/main/java/com/howverse/app/ui/HowverseApp.kt
++++ b/app/src/main/java/com/howverse/app/ui/HowverseApp.kt
+@@ -28,6 +28,7 @@
+ import androidx.compose.foundation.layout.fillMaxSize
+ import androidx.compose.foundation.layout.fillMaxWidth
+ import androidx.compose.foundation.layout.height
++import androidx.compose.foundation.layout.heightIn
+ import androidx.compose.foundation.layout.imePadding
+ import androidx.compose.foundation.layout.padding
+ import androidx.compose.foundation.layout.safeDrawingPadding
+@@ -92,6 +93,7 @@
+ import androidx.compose.ui.text.AnnotatedString
+ import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.unit.dp
++import androidx.compose.ui.window.Dialog
+ import androidx.compose.ui.unit.sp
+ import androidx.core.view.WindowCompat
+ import com.howverse.app.VideoActivity
+@@ -1031,6 +1033,10 @@
+     val stripBitmaps = remember(section.id) { mutableStateMapOf<String, ImageBitmap>() }
+     var stripPhotos by remember(section.id) { mutableStateOf<List<LivePhoto>>(emptyList()) }
+ 
++    // Photos open inside the app, never in the browser.
++    var viewer by remember(section.id) { mutableStateOf<LivePhoto?>(null) }
++    var viewerBitmap by remember(section.id) { mutableStateOf<ImageBitmap?>(null) }
++
+     LaunchedEffect(section.id) {
+         val found = runCatching { LiveMedia.photos(section.id, section.title) }.getOrElse { emptyList() }
+         photos = found
+@@ -1057,6 +1063,15 @@
+         }
+     }
+ 
++    LaunchedEffect(viewer) {
++        val photo = viewer
++        viewerBitmap = when {
++            photo == null -> null
++            heroBitmap != null && photo.thumbUrl == photos.firstOrNull()?.thumbUrl -> heroBitmap
++            else -> runCatching { LiveMedia.bitmap(photo.thumbUrl) }.getOrNull()
++        }
++    }
++
+     val hero = heroBitmap ?: embedded
+     val credit = ImageCredits.bySection(section.id)
+     val live = photos.firstOrNull()
+@@ -1078,6 +1093,7 @@
+                         modifier = Modifier
+                             .fillMaxWidth()
+                             .height(180.dp)
++                            .clickable { live?.let { viewer = it } }
+                     )
+                 }
+             }
+@@ -1104,14 +1120,14 @@
+                     color = p.softText,
+                     fontSize = 10.sp,
+                     lineHeight = 14.sp,
+-                    modifier = Modifier.clickable { openUrl(context, live.pageUrl) }
++                    modifier = Modifier
+                 )
+                 credit != null -> Text(
+                     "Photo: ${credit.title} · ${credit.author} · ${credit.license} · Wikimedia Commons",
+                     color = p.softText,
+                     fontSize = 10.sp,
+                     lineHeight = 14.sp,
+-                    modifier = Modifier.clickable { openUrl(context, credit.pageUrl) }
++                    modifier = Modifier
+                 )
+             }
+         }
+@@ -1174,7 +1190,7 @@
+                             shape = RoundedCornerShape(12.dp),
+                             color = p.glass,
+                             border = BorderStroke(1.dp, p.cardBorder),
+-                            modifier = Modifier.clickable { openUrl(context, photo.pageUrl) }
++                            modifier = Modifier.clickable { viewer = photo }
+                         ) {
+                             if (thumb != null) {
+                                 Image(
+@@ -1260,6 +1276,62 @@
+             }
+         }
+     }
++
++    val shown = viewer
++    if (shown != null) {
++        Dialog(onDismissRequest = { viewer = null }) {
++            Surface(
++                shape = RoundedCornerShape(18.dp),
++                color = p.panel,
++                border = BorderStroke(1.dp, p.cardBorder)
++            ) {
++                Column(Modifier.padding(12.dp)) {
++                    val big = viewerBitmap
++                    if (big != null) {
++                        Image(
++                            bitmap = big,
++                            contentDescription = shown.title,
++                            contentScale = ContentScale.Fit,
++                            modifier = Modifier
++                                .fillMaxWidth()
++                                .heightIn(max = 420.dp)
++                        )
++                    } else {
++                        Box(
++                            Modifier
++                                .fillMaxWidth()
++                                .height(220.dp),
++                            contentAlignment = Alignment.Center
++                        ) {
++                            CircularProgressIndicator(color = p.accent)
++                        }
++                    }
++                    Spacer(Modifier.height(10.dp))
++                    Text(shown.title, color = p.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
++                    Spacer(Modifier.height(3.dp))
++                    Text(
++                        "${shown.author} · ${shown.license} · Wikimedia Commons",
++                        color = p.softText,
++                        fontSize = 11.sp,
++                        lineHeight = 15.sp
++                    )
++                    Row(
++                        Modifier.fillMaxWidth(),
++                        horizontalArrangement = Arrangement.End
++                    ) {
++                        if (shown.licenseUrl.isNotBlank()) {
++                            TextButton(onClick = { openUrl(context, shown.licenseUrl) }) {
++                                Text("Licence", color = p.softText, fontSize = 13.sp)
++                            }
++                        }
++                        TextButton(onClick = { viewer = null }) {
++                            Text("Close", color = p.accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
++                        }
++                    }
++                }
++            }
++        }
++    }
+ }
+ 
+ @Composable
+@@ -2000,7 +2072,6 @@
+                         Column(
+                             Modifier
+                                 .fillMaxWidth()
+-                                .clickable { openUrl(context, credit.pageUrl) }
+                                 .padding(vertical = 7.dp)
+                         ) {
+                             Text(
