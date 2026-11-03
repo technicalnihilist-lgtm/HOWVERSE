@@ -27,11 +27,14 @@ jobs:
 
       - name: Apply pending source patches
         run: |
-          if [ -f patches/live-section.patch ] && ! grep -q LiveMedia app/src/main/java/com/howverse/app/ui/HowverseApp.kt; then
+          UI=app/src/main/java/com/howverse/app/ui/HowverseApp.kt
+          if [ -f patches/live-section.patch ] && ! grep -q LiveMedia "$UI"; then
             git apply patches/live-section.patch
             echo "applied patches/live-section.patch"
-          else
-            echo "nothing to apply"
+          fi
+          if [ -f patches/live-strip.patch ] && ! grep -q stripPhotos "$UI"; then
+            git apply patches/live-strip.patch
+            echo "applied patches/live-strip.patch"
           fi
 
       - name: Configure Android SDK
@@ -49,24 +52,23 @@ jobs:
       - name: Collect APK
         run: |
           mkdir -p out
-          cp app/build/outputs/apk/debug/app-debug.apk out/HOWVERSE-2.1-debug.apk
+          cp app/build/outputs/apk/debug/app-debug.apk out/HOWVERSE-2.2-debug.apk
           ls -la out
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: HOWVERSE-debug-apk
-          path: out/HOWVERSE-2.1-debug.apk
+          path: out/HOWVERSE-2.2-debug.apk
           if-no-files-found: error
 
-      - name: Check whether v2.1.0 already exists
+      - name: Check whether v2.2.0 already exists
         id: rel
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if gh release view v2.1.0 > /dev/null 2>&1; then
+          if gh release view v2.2.0 > /dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
-            echo "release v2.1.0 already exists - artifact only"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
@@ -75,39 +77,38 @@ jobs:
         if: steps.rel.outputs.exists == 'false'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v2.1.0
-          name: HOWVERSE 2.1 — live Wikimedia photos, image credits, latest videos
+          tag_name: v2.2.0
+          name: HOWVERSE 2.2 — section photos fixed
           body: |
-            ## HOWVERSE 2.1
+            ## HOWVERSE 2.2
 
-            ### New in this build
-            - **Live photos per section** — opening a section asks the Wikimedia Commons API for current
-              free-licensed photographs of that topic, so new uploads appear without a new build.
-              A "Fresh photos · LIVE" strip shows more, each tappable to its Commons source page.
-            - **Photo credits everywhere** — a credit line under every section photo (title, author,
-              licence, source) and a full **Profile → Image credits** list covering all 27 section photos.
-            - **Latest videos** — the new "Latest" button opens YouTube sorted by upload date, so recent
-              videos come first.
+            Fixes the section photos not appearing in 2.1.
+
+            ### What was wrong
+            Wikimedia answers **403 Forbidden** to any request that arrives with a generic client
+            user agent. The photo downloads in 2.1 carried no user agent of their own, so OkHttp sent
+            its default `okhttp/4.12.0` and every image was rejected — the app fell back to the
+            bundled artwork. The API call was unaffected, which is why photos were found but never
+            drawn.
+
+            ### What changed
+            - Every Commons request, API and image alike, now identifies the app explicitly.
+            - The "Fresh photos" strip asks for 330 px thumbnails instead of 960 px ones, so opening a
+              section uses roughly 250 KB of data instead of ~2 MB.
+            - If a live photo still cannot be downloaded, the section says so in plain words and keeps
+              the bundled photo — never a blank frame.
 
             ### APK details
             | | |
             |---|---|
-            | File | `HOWVERSE-2.1-debug.apk` |
+            | File | `HOWVERSE-2.2-debug.apk` |
             | Package | `com.howverse.app` |
-            | Version | 2.1 (versionCode 4) |
+            | Version | 2.2 (versionCode 5) |
             | Min Android | 8.0 (API 26) |
             | Target | Android 15 (API 35) |
             | Signing | Android debug key |
 
-            ### Notes
-            - Debug-signed: enable "Install unknown apps" to install. Updates over 2.0 (same package and key).
-            - Live photos are read-only calls to the public Commons API; nothing is uploaded.
-            - Offline? The embedded photo and the offline lesson library still work, and the app says so.
-
-            ### Build it yourself
-            ```bash
-            ./gradlew assembleDebug
-            ```
-          files: out/HOWVERSE-2.1-debug.apk
+            Debug-signed, updates over 2.0 / 2.1 (same package and key).
+          files: out/HOWVERSE-2.2-debug.apk
           fail_on_unmatched_files: true
           draft: false
