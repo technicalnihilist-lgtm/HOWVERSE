@@ -10,7 +10,7 @@
  import android.widget.Toast
  import androidx.compose.foundation.BorderStroke
  import androidx.compose.foundation.Image
-@@ -244,8 +246,36 @@
+@@ -244,8 +246,37 @@
  
      fun speak(text: String) {
          val engine = tts ?: return
